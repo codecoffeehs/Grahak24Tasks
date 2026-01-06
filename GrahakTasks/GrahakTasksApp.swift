@@ -9,9 +9,13 @@ import SwiftUI
 
 @main
 struct GrahakTasksApp: App {
+    @StateObject private var authStore = AuthStore()
+    @StateObject private var taskStore = TaskStore()
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(authStore)
+                .environmentObject(taskStore)
         }
     }
 }

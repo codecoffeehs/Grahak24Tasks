@@ -8,17 +8,23 @@
 import SwiftUI
 
 struct ContentView: View {
+    @EnvironmentObject var auth:AuthStore
+    @EnvironmentObject var task:TaskStore
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        if auth.isAuthenticated{
+            HomeView()
+        }else{
+            NavigationStack{
+                LoginView()
+                
+            }
         }
-        .padding()
+        
     }
 }
 
 #Preview {
     ContentView()
+        .environmentObject(AuthStore())
+        .environmentObject(TaskStore())
 }
