@@ -33,7 +33,15 @@ class TaskStore: ObservableObject {
     ) async {
         isLoading = true
         errorMessage = nil
+        
+        let minimumDelay: TimeInterval = 60
 
+        guard due.timeIntervalSinceNow > minimumDelay else {
+                isLoading = false
+                errorMessage = "Due time must be at least 1 minute from now."
+                showErrorAlert = true
+                return
+            }
         do {
             let newTask = try await TaskApi.createTask(
                 title: title,
@@ -43,6 +51,9 @@ class TaskStore: ObservableObject {
 
             // Insert at top (feels instant)
             tasks.insert(newTask, at: 0)
+            
+            // Schedule Notification
+            NotificationManager.shared.scheduleTaskNotification(id: newTask.id, title: newTask.title, dueDate: due)
 
         } catch {
             errorMessage = error.localizedDescription

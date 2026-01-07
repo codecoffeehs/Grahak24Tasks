@@ -39,7 +39,9 @@ class AuthStore: ObservableObject {
             token = response.token
             KeychainService.save(key: tokenKey, value: response.token)
             KeychainService.save(key: "fullName", value: response.userResponse.fullName)
-            isAuthenticated = true
+            withAnimation{
+                isAuthenticated = true
+            }
 
         } catch {
             errorMessage = error.localizedDescription
@@ -68,7 +70,10 @@ class AuthStore: ObservableObject {
             token = response.token
             KeychainService.save(key: tokenKey, value: response.token)
             KeychainService.save(key: "fullName", value: response.userResponse.fullName)
-            isAuthenticated = true
+            withAnimation{
+                isAuthenticated = true
+            }
+
 
         } catch {
             errorMessage = error.localizedDescription
@@ -81,7 +86,10 @@ class AuthStore: ObservableObject {
     // MARK: - Logout
     func logout() {
         token = nil
-        isAuthenticated = false
+        withAnimation{
+            isAuthenticated = false
+        }
+
         KeychainService.delete(key: tokenKey)
         KeychainService.delete(key: "fullName")
     }

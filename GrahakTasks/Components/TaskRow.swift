@@ -24,7 +24,7 @@ struct TaskRow: View {
 
                 // 3. Status/Date Row
                 HStack(spacing: 6) {
-                    if let dueInfo = parseDueDate(from: due) {
+                    if let dueInfo = DateParser.parseDueDate(from: due) {
                         Image(systemName: "calendar")
                             .font(.caption2)
                         
@@ -39,10 +39,6 @@ struct TaskRow: View {
             
             Spacer()
             
-            // 4. Subtle Chevron to indicate it's a list item
-            Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundColor(.accentColor)
         }
         .padding(.vertical, 8)
         .contentShape(Rectangle()) // Makes the whole row tappable
@@ -58,17 +54,5 @@ struct TaskRow: View {
         return date < Date() ? .red : .secondary
     }
 
-    private func parseDueDate(from dueString: String) -> (text: String, isOverdue: Bool)? {
-        let formatter = ISO8601DateFormatter()
-        guard let dueDate = formatter.date(from: dueString) else { return nil }
-
-        let relativeFormatter = RelativeDateTimeFormatter()
-        relativeFormatter.unitsStyle = .full
-        let relative = relativeFormatter.localizedString(for: dueDate, relativeTo: Date())
-
-        let isOverdue = dueDate < Date()
-        let prefix = isOverdue ? "Overdue " : "Due "
-        
-        return (prefix + relative, isOverdue)
-    }
+    
 }

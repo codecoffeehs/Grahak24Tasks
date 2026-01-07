@@ -3,85 +3,108 @@ import SwiftUI
 struct LoginView: View {
     @State private var username = ""
     @State private var password = ""
-    @EnvironmentObject var auth : AuthStore
-    var body: some View {
-        VStack {
-//            # Mark -- Added
-            Spacer()
-            VStack(spacing: 32) {
+    @EnvironmentObject var auth: AuthStore
+    @Environment(\.colorScheme) private var colorScheme
 
-                // Header
-                VStack(spacing: 8) {
+    var body: some View {
+
+        VStack(spacing: 24) {
+            Spacer()
+
+            // Header
+            VStack(alignment: .leading, spacing: 6) {
                     Text("Welcome back")
-                        .font(.largeTitle)
-                        .fontWeight(.semibold)
+                        .font(.largeTitle.bold())
 
                     Text("Sign in to continue")
                         .font(.callout)
-                        .foregroundColor(.secondary)
-                }
-                .multilineTextAlignment(.center)
+                        .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
-                // Fields
-                VStack(spacing: 16) {
-                    TextField("Username", text: $username)
-                        .textFieldStyle(.plain)
-                        .padding()
-                        .background(.ultraThinMaterial)
-                        .cornerRadius(14)
-                        .autocapitalization(.none)
-                    
-                    SecureField("Password", text: $password)
-                        .textFieldStyle(.plain)
-                        .padding()
-                        .background(.ultraThinMaterial)
-                        .cornerRadius(14)
-                }
+            // Fields
+            VStack(spacing: 16) {
+                TextField("Username", text: $username)
+                    .padding(.vertical, 10)
+                    .textInputAutocapitalization(.never)
 
-                // Button
-                Button {
-                    Task {
-                        await auth.login(username: username, password: password)
-                    }
-                } label: {
-                    if auth.isLoading {
-                        ProgressView()
-                    } else {
-                        Text("Log In")
-                            .fontWeight(.semibold)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .cornerRadius(14)
-                    }
-                }
-                .disabled(
-                    username.isEmpty ||
-                    password.isEmpty ||
-                    auth.isLoading
-                )
-                .buttonStyle(.glassProminent)
-
-
-                // Navigation
-                NavigationLink {
-                    SignupView()
-                } label: {
-                    Text("Don’t have an account? Sign up")
-                        .font(.footnote)
-                        .foregroundColor(.blue)
-                }
+                SecureField("Password", text: $password)
+                    .padding(.vertical, 10)
             }
             
-            .padding(.horizontal, 24)
-            .frame(maxWidth: 420)
+            // Primary Button
+            PrimaryActionButton(title:"Log In",isLoading: auth.isLoading,isDisabled: username.isEmpty || password.isEmpty || auth.isLoading){
+                await auth.login(username: username, password: password)
+            }
 
-            Spacer()
+            // Navigation
+            NavigationLink {
+                SignupView()
+            } label: {
+                Text("Don’t have an account? Sign up")
+                    .font(.footnote)
+                    .foregroundStyle(Color.blue)
+            }
+
+            Spacer(minLength: 40)
         }
+        .padding(.horizontal, 24)
+        .frame(maxWidth: 420)
+        .background(
+            Color(.systemBackground).ignoresSafeArea()
+        )
+
+        .overlay(alignment: .topLeading) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 120, style: .continuous)
+                    .stroke(Color.orange.opacity(0.10), lineWidth: 1)
+                    .frame(width: 460, height: 320)
+                    .rotationEffect(.degrees(-18))
+
+                RoundedRectangle(cornerRadius: 120, style: .continuous)
+                    .stroke(Color.primary.opacity(0.07), lineWidth: 1)
+                    .frame(width: 420, height: 290)
+                    .rotationEffect(.degrees(-18))
+
+                RoundedRectangle(cornerRadius: 120, style: .continuous)
+                    .stroke(Color.primary.opacity(0.04), lineWidth: 1)
+                    .frame(width: 380, height: 260)
+                    .rotationEffect(.degrees(-18))
+            }
+            .offset(x: -180, y: -140)
+            .allowsHitTesting(false)
+        }
+
+
+
+        .overlay(alignment: .bottomTrailing) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 90, style: .continuous)
+                    .fill(Color.orange.opacity(0.04))
+                    .frame(width: 360, height: 240)
+                    .rotationEffect(.degrees(14))
+
+                RoundedRectangle(cornerRadius: 70, style: .continuous)
+                    .fill(Color.primary.opacity(0.025))
+                    .frame(width: 300, height: 200)
+                    .rotationEffect(.degrees(8))
+            }
+            .offset(x: 160, y: 140)
+            .allowsHitTesting(false)
+        }
+
+
+        
+
         .alert("Error", isPresented: $auth.showErrorAlert) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text(auth.errorMessage ?? "Could'nt Sign Up")
+            Text(auth.errorMessage ?? "Couldn't sign in")
         }
     }
 }
 
+#Preview {
+   LoginView()
+        .environmentObject(AuthStore())
+}

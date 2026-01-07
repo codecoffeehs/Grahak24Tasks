@@ -15,6 +15,10 @@ struct HomeView: View {
                     Label("Profile", systemImage: "person")
                 }
         }
+        .task {
+            await NotificationManager.shared.requestPermission()
+        }
+        .tabBarMinimizeBehavior(.onScrollDown)
     }
 }
 

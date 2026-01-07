@@ -6,6 +6,8 @@ struct ProfileView: View {
 
     // Read once from Keychain (simple & fine for now)
     private let fullName = KeychainService.read(key: "fullName") ?? "User"
+    
+    @State private var showLogoutConfirmation = false
 
     var body: some View {
         NavigationStack {
@@ -37,12 +39,21 @@ struct ProfileView: View {
                 // MARK: - Logout
                 Section {
                     Button(role: .destructive) {
-                        auth.logout()
+                        showLogoutConfirmation = true
                     } label: {
                         Text("Log Out")
                     }
                 }
             }
+            .alert("Log Out?",isPresented: $showLogoutConfirmation){
+                Button("Yes",role: .destructive){
+                    auth.logout()
+                }
+                Button("Cancel",role: .cancel){}
+            } message: {
+                Text("You Can Login Anytime")
+            }
+
             .navigationTitle("Profile")
             .navigationBarTitleDisplayMode(.large)
         }

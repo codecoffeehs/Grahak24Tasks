@@ -25,44 +25,42 @@ struct TaskListView: View {
                 } else {
                     List {
                         ForEach(taskStore.tasks, id: \.id) { task in
-                            TaskRow(
-                                title: task.title,
-                                due: task.due,
-                                isCompleted: task.isCompleted
-                            )
-                            .swipeActions(edge: .leading) {
-                                Button(role: .destructive) {
-                                    // Action for delete
-                                } label: {
-                                    Image(systemName: "trash")
-                                }
-                            }
-                            .swipeActions(edge: .trailing) {
-                                Button {
-                                    // Use Swift.Task and corrected name: toggleTask
-                                        Task {
-                                        if let token = auth.token {
-                                            await taskStore.toggleTask(id: task.id, token: token)
-                                        }
+                            NavigationLink{
+                                SingleTaskView(task: task)
+                            } label:{
+                                TaskRow(
+                                    title: task.title,
+                                    due: task.due,
+                                    isCompleted: task.isCompleted
+                                )
+                                .swipeActions(edge: .leading) {
+                                    Button(role: .destructive) {
+                                        // Action for delete
+                                    } label: {
+                                        Image(systemName: "trash")
                                     }
-                                } label: {
-                                    Image(systemName: task.isCompleted ? "arrow.uturn.left" : "checkmark")
                                 }
-                                .tint(.green)
-                                
-                                Button {
-                                    // Action for edit
-                                } label: {
-                                    Image(systemName: "pencil")
+                                .swipeActions(edge: .trailing) {
+                                    Button {
+                                        // Use Swift.Task and corrected name: toggleTask
+                                            Task {
+                                            if let token = auth.token {
+                                                await taskStore.toggleTask(id: task.id, token: token)
+                                            }
+                                        }
+                                    } label: {
+                                        Image(systemName: task.isCompleted ? "arrow.uturn.left" : "checkmark")
+                                    }
+                                    .tint(.green)
+                                    
+                                    Button {
+                                        // Action for edit
+                                    } label: {
+                                        Image(systemName: "pencil")
+                                    }
+                                    .tint(.blue)
                                 }
-                                .tint(.blue)
                             }
-                        }
-                    }
-                    .refreshable {
-                        if let token = auth.token {
-                            // Corrected name: fetchTasks
-                            await taskStore.fetchTasks(token: token)
                         }
                     }
                 }

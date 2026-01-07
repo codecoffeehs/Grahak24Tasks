@@ -13,9 +13,11 @@ struct ContentView: View {
     var body: some View {
         if auth.isAuthenticated{
             HomeView()
+                .transition(.move(edge: .trailing))
         }else{
             NavigationStack{
                 LoginView()
+                    .transition(.move(edge: .leading))
                 
             }
         }
