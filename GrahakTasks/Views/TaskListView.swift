@@ -11,58 +11,74 @@ struct TaskListView: View {
             Group {
                 if taskStore.isLoading {
                     ProgressView("Loading tasks…")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+
                 } else if taskStore.tasks.isEmpty {
                     VStack(spacing: 12) {
                         Image(systemName: "checklist")
                             .font(.system(size: 44))
                             .foregroundColor(.secondary)
 
-                        Text("No tasks yet")
+                        Text("Your day is clear. Add a task to get started.")
                             .font(.callout)
                             .foregroundColor(.secondary)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+
                 } else {
                     List {
-                        ForEach(taskStore.tasks, id: \.id) { task in
-                            NavigationLink{
+                        ForEach(taskStore.tasks) { task in
+                            NavigationLink {
                                 SingleTaskView(task: task)
-                            } label:{
+                            } label: {
                                 TaskRow(
                                     title: task.title,
                                     due: task.due,
-                                    isCompleted: task.isCompleted
+                                    isCompleted: task.isCompleted,
+                                    repeatType: task.repeatType
                                 )
-                                .swipeActions(edge: .leading) {
-                                    Button(role: .destructive) {
-                                        // Action for delete
-                                    } label: {
-                                        Image(systemName: "trash")
-                                    }
-                                }
-                                .swipeActions(edge: .trailing) {
-                                    Button {
-                                        // Use Swift.Task and corrected name: toggleTask
-                                            Task {
-                                            if let token = auth.token {
-                                                await taskStore.toggleTask(id: task.id, token: token)
-                                            }
+                            }
+                            .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                                Button(role: .destructive) {
+                                    Task {
+                                        if let token = auth.token {
+                                            await taskStore.deleteTask(
+                                                id: task.id,
+                                                token: token
+                                            )
                                         }
-                                    } label: {
-                                        Image(systemName: task.isCompleted ? "arrow.uturn.left" : "checkmark")
                                     }
-                                    .tint(.green)
-                                    
-                                    Button {
-                                        // Action for edit
-                                    } label: {
-                                        Image(systemName: "pencil")
-                                    }
-                                    .tint(.blue)
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
                                 }
+                            }
+                            .swipeActions(edge: .trailing) {
+                                Button {
+                                    Task {
+                                        if let token = auth.token {
+                                            await taskStore.toggleTask(
+                                                id: task.id,
+                                                token: token
+                                            )
+                                        }
+                                    }
+                                } label: {
+                                    Image(systemName: task.isCompleted
+                                          ? "arrow.uturn.left"
+                                          : "checkmark")
+                                }
+                                .tint(.green)
+
+                                Button {
+                                    // Edit later
+                                } label: {
+                                    Image(systemName: "pencil")
+                                }
+                                .tint(.blue)
                             }
                         }
                     }
+                    .listStyle(.insetGrouped)
                 }
             }
             .navigationTitle("Tasks")
@@ -74,21 +90,23 @@ struct TaskListView: View {
                         Image(systemName: "plus")
                     }
                 }
-                ToolbarItem(placement: .topBarLeading) {
-                    Menu {
-                        Button {
-                            // Mark all done logic
-                        } label: {
-                            Label("Mark All As Done", systemImage: "checkmark.circle")
-                        }
+                if taskStore.tasks.count > 3{
+                    ToolbarItem(placement: .topBarLeading) {
+                        Menu {
+                            Button {
+                                // Mark all done (later)
+                            } label: {
+                                Label("Mark All As Done", systemImage: "checkmark.circle")
+                            }
 
-                        Button(role: .destructive) {
-                            // Delete all logic
+                            Button(role: .destructive) {
+                                // Delete all (later)
+                            } label: {
+                                Label("Delete All", systemImage: "trash")
+                            }
                         } label: {
-                            Label("Delete All", systemImage: "trash")
+                            Image(systemName: "ellipsis")
                         }
-                    } label: {
-                        Image(systemName: "ellipsis")
                     }
                 }
             }
@@ -107,4 +125,10 @@ struct TaskListView: View {
             Text(taskStore.errorMessage ?? "Something went wrong")
         }
     }
+}
+
+#Preview{
+    TaskListView()
+        .environmentObject(TaskStore())
+        .environmentObject(AuthStore())
 }

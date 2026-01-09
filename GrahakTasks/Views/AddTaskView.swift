@@ -1,21 +1,26 @@
 import SwiftUI
+import UserNotifications
 
 struct AddTaskView: View {
     @EnvironmentObject var taskStore: TaskStore
     @EnvironmentObject var auth: AuthStore
     @Environment(\.dismiss) var dismiss
 
-    @State private var title = ""
-    @State private var dueDate = Date().addingTimeInterval(120)
-    @State private var repeatOption: RepeatOption = .none
-    @State private var notificationsAllowed = true
-
+    // MARK: - Form State
+    @State private var title: String = ""
+    @State private var dueDate: Date = Date().addingTimeInterval(120)
+    @State private var repeatOption: RepeatType = .none
+    @State private var notificationsAllowed: Bool = true
+    // MARK: - Notification Permission
     private func checkNotificationPermission() {
         UNUserNotificationCenter.current().getNotificationSettings { settings in
             DispatchQueue.main.async {
                 notificationsAllowed = settings.authorizationStatus == .authorized
             }
         }
+    }
+    var isTitleValid: Bool {
+        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var body: some View {
@@ -25,6 +30,9 @@ struct AddTaskView: View {
                 // MARK: - Title
                 Section {
                     TextField("Title", text: $title)
+                        .textInputAutocapitalization(.sentences)
+                } footer: {
+                    Text("Keep It Short and Clear").foregroundStyle(.primary)
                 }
 
                 // MARK: - Due Date & Time
@@ -40,14 +48,17 @@ struct AddTaskView: View {
                     if !notificationsAllowed {
                         Text("Enable notifications to set reminders for tasks.")
                             .foregroundStyle(.red)
+                    }else{
+                        Text("Select when you want to be reminded")
+                            .foregroundStyle(.primary)
                     }
                 }
 
                 // MARK: - Repeat
                 Section {
                     Picker("Repeat", selection: $repeatOption) {
-                        ForEach(RepeatOption.allCases) { option in
-                            Text(option.rawValue)
+                        ForEach(RepeatType.allCases) { option in
+                            Text(option.title)
                                 .tag(option)
                         }
                     }
@@ -56,6 +67,9 @@ struct AddTaskView: View {
                     if !notificationsAllowed {
                         Text("Repeating tasks require notification permissions.")
                             .foregroundStyle(.red)
+                    }else{
+                        Text("Select the repeating frequency")
+                            .foregroundStyle(.primary)
                     }
                 }
             }
@@ -63,25 +77,25 @@ struct AddTaskView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
 
-                // Save
+                // MARK: - Save
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Save") {
                         Task {
                             if let token = auth.token {
                                 await taskStore.addTask(
-                                    title: title,
+                                    title: title.trimmingCharacters(in: .whitespacesAndNewlines),
                                     due: dueDate,
+                                    repeatType: repeatOption,
                                     token: token
-                                    // repeatOption wired later
                                 )
                                 dismiss()
                             }
                         }
                     }
-                    .disabled(title.isEmpty || taskStore.isLoading)
+                    .disabled(!isTitleValid || taskStore.isLoading)
                 }
 
-                // Cancel
+                // MARK: - Cancel
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Cancel") {
                         dismiss()

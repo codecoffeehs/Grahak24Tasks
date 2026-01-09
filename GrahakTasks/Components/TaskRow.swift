@@ -4,17 +4,20 @@ struct TaskRow: View {
     let title: String
     let due: String
     let isCompleted: Bool
+    let repeatType: RepeatType
 
     var body: some View {
         HStack(alignment: .center, spacing: 16) {
+
             // 1. Completion Indicator
-            Image(systemName: isCompleted ? "checkmark.circle" : "circle")
+            Image(systemName: isCompleted ? "checkmark.seal.fill" : "xmark.seal")
                 .font(.system(size: 22, weight: .medium))
                 .foregroundColor(isCompleted ? .green : .secondary.opacity(0.5))
-                .symbolEffect(.bounce, value: isCompleted) // Animates when toggled
-            
+                .symbolEffect(.bounce, value: isCompleted)
+
             VStack(alignment: .leading, spacing: 4) {
-                // 2. Title with Strike-through logic
+
+                // 2. Title
                 Text(title)
                     .font(.headline)
                     .fontWeight(.medium)
@@ -22,37 +25,43 @@ struct TaskRow: View {
                     .foregroundColor(isCompleted ? .secondary : .primary)
                     .lineLimit(1)
 
-                // 3. Status/Date Row
-                HStack(spacing: 6) {
-                    if let dueInfo = DateParser.parseDueDate(from: due) {
+                // 3. Due Date (hidden when completed)
+                if let dueInfo = DateParser.parseDueDate(from: due) {
+                    HStack(spacing: 6) {
                         Image(systemName: "calendar")
                             .font(.caption2)
-                        
+
                         Text(dueInfo.text)
                     }
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundColor(dueInfo.isOverdue ? .red : .secondary)
                 }
-                .font(.caption)
-                .fontWeight(.medium)
-                // Color logic: Completed = Gray, Overdue = Red, Upcoming = Secondary
-                .foregroundColor(statusColor(for: due))
             }
-            
+
             Spacer()
-            
+
+            // 4. Repeat Badge
+            if repeatType != .none {
+                HStack(spacing: 4) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.caption2)
+
+                    Text(repeatType.shortTitle)
+                        .font(.caption2)
+                        .fontWeight(.semibold)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(
+                    Capsule()
+                        .fill(repeatType.backgroundColor.opacity(0.15))
+                )
+                .foregroundColor(repeatType.color)
+            }
         }
         .padding(.vertical, 8)
-        .contentShape(Rectangle()) // Makes the whole row tappable
+        .contentShape(Rectangle())
         .opacity(isCompleted ? 0.7 : 1.0)
     }
-
-    // MARK: - Helper Logic
-    
-    private func statusColor(for dueString: String) -> Color {
-        if isCompleted { return .secondary }
-        let formatter = ISO8601DateFormatter()
-        guard let date = formatter.date(from: dueString) else { return .secondary }
-        return date < Date() ? .red : .secondary
-    }
-
-    
 }

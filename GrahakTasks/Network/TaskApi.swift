@@ -26,10 +26,12 @@ struct TaskApi {
         }
     }
 
-    // MARK: - Create Tasks
+    
+    // MARK: - Create Task
     static func createTask(
         title: String,
         due: Date,
+        repeatType: RepeatType,
         token: String
     ) async throws -> TaskModel {
 
@@ -42,7 +44,8 @@ struct TaskApi {
 
         let body: [String: Any] = [
             "title": title,
-            "due": ISO8601DateFormatter().string(from: due)
+            "due": ISO8601DateFormatter().string(from: due),
+            "repeat": repeatType.rawValue   // ✅ enum → int
         ]
 
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -59,7 +62,7 @@ struct TaskApi {
             throw ApiError(message: "Failed to create task")
         }
     }
-    
+
     // MARK: - Toggle Task
     static func toggleTask(
             taskId: String,

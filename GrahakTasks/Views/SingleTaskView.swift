@@ -33,24 +33,25 @@ struct SingleTaskView: View {
                 HStack {
                     Text("Due")
                     Spacer()
-//                    Text(task.due)
-//                        .foregroundColor(.secondary)
-                    if let result  = DateParser.parseDueDate(from: task.due){
+                    if let result = DateParser.parseDueDate(from: task.due) {
                         Text(result.text)
-                            .foregroundStyle(result.isOverdue ? .red : .green)
-                    }else{
+                            .foregroundStyle(result.isOverdue ? .red : .secondary)
+                    } else {
                         Text(task.due)
+                            .foregroundColor(.secondary)
                     }
                 }
             }
 
-            // MARK: - Repeat (future)
+            // MARK: - Repeat
             Section {
                 HStack {
                     Text("Repeat")
                     Spacer()
-                    Text("None")
-                        .foregroundColor(.secondary)
+                    Text(task.repeatType.title)
+                        .foregroundColor(
+                            task.repeatType == .none ? .secondary : .primary
+                        )
                 }
             }
         }

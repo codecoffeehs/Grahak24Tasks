@@ -53,4 +53,25 @@ class NotificationManager {
 
         center.add(request)
     }
+    
+    // MARK: - Cancel Notification (NEW)
+
+        /// Cancels a single task notification
+        func cancelNotification(id: String) {
+            let center = UNUserNotificationCenter.current()
+            center.removePendingNotificationRequests(withIdentifiers: [id])
+            center.removeDeliveredNotifications(withIdentifiers: [id])
+
+            print("🔕 Cancelled notification for task:", id)
+        }
+
+        /// Cancels all scheduled task notifications (optional helper)
+        func cancelAllNotifications() {
+            let center = UNUserNotificationCenter.current()
+            center.removeAllPendingNotificationRequests()
+            center.removeAllDeliveredNotifications()
+
+            print("🔕 Cancelled ALL task notifications")
+        }
+
 }
