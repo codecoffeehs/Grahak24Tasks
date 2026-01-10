@@ -2,13 +2,17 @@ import SwiftUI
 
 struct CategoryView: View {
     @State private var addCategoryOpen = false
+
     @EnvironmentObject var categoryStore: CategoryStore
+    @EnvironmentObject var authStore: AuthStore
 
     var body: some View {
         NavigationStack {
             Group {
                 if categoryStore.isLoading {
                     ProgressView()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+
                 } else if categoryStore.categories.isEmpty {
                     ContentUnavailableView(
                         "No Categories Yet",
@@ -16,8 +20,23 @@ struct CategoryView: View {
                         description: Text("Create your first category to start organizing tasks.")
                     )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+
                 } else {
-                    Text("Hello")
+                    List {
+                        ForEach(categoryStore.categories, id: \.id) { category in
+                            NavigationLink {
+                                Text("Hello")
+                            } label: {
+                                CategoryRow(
+                                    title: category.title,
+                                    icon: category.icon,
+                                    color: category.color,
+                                    totalTasks: 0
+                                )
+                            }
+                        }
+                    }
+                    .listStyle(.insetGrouped)
                 }
             }
             .navigationTitle("Categories")
@@ -31,10 +50,19 @@ struct CategoryView: View {
                     }
                 }
             }
+            .alert("Error", isPresented: $categoryStore.showErrorAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(categoryStore.errorMessage ?? "Something went wrong")
+            }
             .sheet(isPresented: $addCategoryOpen) {
                 AddCategoryView()
+            }
+            .task {
+                if let token = authStore.token {
+                    await categoryStore.fetchCategories(token: token)
+                }
             }
         }
     }
 }
-

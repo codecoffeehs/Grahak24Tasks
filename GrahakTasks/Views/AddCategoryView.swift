@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct AddCategoryView: View {
     @EnvironmentObject var categoryStore: CategoryStore
@@ -11,18 +12,69 @@ struct AddCategoryView: View {
     @State private var selectedIcon: String = "folder"
 
     // MARK: - Icon options
+    // MARK: - Icon options (SF Symbols)
     private let icons = [
+        // General
         "folder",
+        "tag",
+        "bookmark",
+        "star",
+        "flag",
+        
+        // Work / Productivity
         "briefcase",
+        "calendar",
+        "checklist",
+        "clock",
+        "bell",
+        
+        // Home / Personal
         "house",
+        "bed.double",
+        "lamp.table",
+        "key",
+        
+        // Health / Fitness
         "heart",
+        "cross.case",
+        "pills",
+        "dumbbell",
+        "figure.walk",
+        
+        // Shopping / Food
         "cart",
+        "bag",
+        "creditcard",
+        "fork.knife",
+        "cup.and.saucer",
+        
+        // Study / Learning
         "book",
         "graduationcap",
-        "bolt",
+        "pencil",
+        "doc.text",
+        
+        // Travel / Outdoor
+        "airplane",
+        "car",
+        "map",
+        "camera",
+        "sun.max",
+        
+        // Social / People
+        "person",
         "person.2",
-        "star"
+        "message",
+        "phone",
+        
+        // Tech / Creative
+        "bolt",
+        "wifi",
+        "laptopcomputer",
+        "paintpalette",
+        "music.note"
     ]
+
 
     // MARK: - Validation
     private var trimmedTitle: String {
@@ -45,25 +97,32 @@ struct AddCategoryView: View {
                 
                 // MARK: - Color
                 Section("Color"){
-                    HStack{
-                        ForEach(CategoryColor.allCases){
-                            color in
-                            Circle()
-                                .fill(color.color)
-                                .frame(width:45,height: 45)
-                                .overlay(
-                                                                    Circle()
-                                                                        .strokeBorder(
-                                                                            color == selectedColor ? Color.primary : Color.clear,
-                                                                            lineWidth: 2
-                                                                        )
-                                                                )
-                                                                .onTapGesture {
-                                                                    selectedColor = color
-                                                                }
+                    ScrollView(.horizontal,showsIndicators: false){
+                        HStack{
+                            ForEach(CategoryColor.allCases){
+                                color in
+                                Circle()
+                                    .fill(color.color)
+                                    .frame(width:45,height: 45)
+                                    .padding(4)
+                                    .overlay(
+                                        Circle()
+                                            .strokeBorder(
+                                                color == selectedColor ? selectedColor.color : Color.clear,
+                                                lineWidth: 2
+                                            )
+                                    )
+                                    .onTapGesture {
+                                        let generator = UISelectionFeedbackGenerator()
+                                                        generator.selectionChanged()
+                                        selectedColor = color
+                                    }
+                            }
                         }
                     }
                 }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
                 // MARK: - Icon
                 Section("Icon") {
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -87,6 +146,7 @@ struct AddCategoryView: View {
                         .padding(.vertical, 6)
                     }
                 }
+
                 // MARK: - Category Preview
                 Section("Preview"){
                     CategoryRow(
@@ -109,15 +169,15 @@ struct AddCategoryView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Save") {
                         Task {
-//                            if let token = auth.token {
-////                                await categoryStore.createCategory(
-////                                    title: trimmedTitle,
-////                                    color: selectedColor.rawValue, // 👈 string ID
-////                                    icon: selectedIcon,
-////                                    token: token
-////                                )
-//                                dismiss()
-//                            }
+                            if let token = auth.token {
+                                await categoryStore.createCategory(
+                                    title: trimmedTitle,
+                                    color: selectedColor.rawValue,
+                                    icon: selectedIcon,
+                                    token: token
+                                )
+                                dismiss()
+                            }
                         }
                     }
                     .disabled(!isTitleValid)

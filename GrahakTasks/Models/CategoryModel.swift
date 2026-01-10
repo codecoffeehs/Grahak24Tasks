@@ -1,4 +1,4 @@
-struct CategoryModel : Codable{
+struct CategoryModel : Codable,Identifiable{
     let id : String
     var title: String
     var color : String

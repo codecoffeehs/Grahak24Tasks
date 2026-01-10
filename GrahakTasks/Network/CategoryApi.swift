@@ -2,7 +2,7 @@ import Foundation
 
 struct CategoryApi{
     
-    static let baseURL = "https://api.grahak24.com/tasks"
+    static let baseURL = "https://api.grahak24.com/tasks/taskcategory"
     
     // MARK: - Fetch All Categories
     static func fetchCategories(token:String) async throws -> [CategoryModel]{
@@ -26,9 +26,9 @@ struct CategoryApi{
                                 color: String,
                                 icon: String,
                                 token: String) async throws -> CategoryModel{
-        guard let url = URL(string: baseURL) else{
-            throw ApiError(message: "Invalid URL")
-        }
+        guard let url = URL(string: "\(baseURL)/create") else {
+                    throw ApiError(message: "Invalid URL")
+                }
         var request = NetworkHelpers.authorizedRequest(url: url, token: token)
         request.httpMethod  = HTTPMethod.post.rawValue
         
