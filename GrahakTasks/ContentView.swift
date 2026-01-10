@@ -10,6 +10,7 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject var auth:AuthStore
     @EnvironmentObject var task:TaskStore
+    @EnvironmentObject var category:CategoryStore
     var body: some View {
         if auth.isAuthenticated{
             HomeView()
@@ -29,4 +30,6 @@ struct ContentView: View {
     ContentView()
         .environmentObject(AuthStore())
         .environmentObject(TaskStore())
+        .environmentObject(CategoryStore())
+    
 }

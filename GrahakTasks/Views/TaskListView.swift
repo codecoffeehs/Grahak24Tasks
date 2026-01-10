@@ -42,7 +42,6 @@ struct TaskListView: View {
                                 }
                                 .swipeActions(edge: .trailing) {
                                     Button {
-                                        // Use Swift.Task and corrected name: toggleTask
                                             Task {
                                             if let token = auth.token {
                                                 await taskStore.toggleTask(id: task.id, token: token)
