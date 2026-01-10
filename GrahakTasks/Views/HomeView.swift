@@ -4,19 +4,18 @@ struct HomeView: View {
     @StateObject private var auth = AuthStore()
     var body: some View {
         TabView {
-            Tab("Home",systemImage: "house"){
+            Tab("Home",systemImage: "house.fill"){
                 TaskListView()
             }
-            Tab("Collab",systemImage: "person.line.dotted.person"){
-                CollaboratorView()
-            }
-            Tab("Categories",systemImage: "folder.fill"){
+            Tab("Category",systemImage: "folder.fill"){
                 CategoryView()
             }
-            Tab("Profile",systemImage: "person"){
+            Tab("Shared",systemImage: "person.line.dotted.person"){
+                SharedView()
+            }
+            Tab("Profile",systemImage: "person.fill"){
                 ProfileView()
             }
-            
             Tab(role: .search){
                 SearchView()
             }
@@ -27,9 +26,5 @@ struct HomeView: View {
         .tabBarMinimizeBehavior(.onScrollDown)
     }
 }
-#Preview {
-    HomeView()
-        .environmentObject(AuthStore())
-        .environmentObject(TaskStore())
-}
+
 
