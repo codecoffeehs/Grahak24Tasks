@@ -2,12 +2,14 @@ import SwiftUI
 
 struct AddTaskView: View {
     @EnvironmentObject var taskStore: TaskStore
+    @EnvironmentObject var categoryStore : CategoryStore
     @EnvironmentObject var auth: AuthStore
     @Environment(\.dismiss) var dismiss
 
     @State private var title = ""
     @State private var dueDate = Date().addingTimeInterval(120)
-    @State private var repeatOption: RepeatOption = .none
+    @State private var repeatOption: RepeatType = .none
+    @State private var selectedCategoryId: String = ""
     @State private var notificationsAllowed = true
 
     private func checkNotificationPermission() {
@@ -25,6 +27,21 @@ struct AddTaskView: View {
                 // MARK: - Title
                 Section {
                     TextField("Title", text: $title)
+                }
+                
+                // MARK: - Category
+                Section {
+                    Picker("Category", selection: $selectedCategoryId) {
+
+                        // Optional "None" option
+                        Text("None")
+                            .tag("")
+
+                        ForEach(categoryStore.categories, id: \.id) { category in
+                            Text(category.title)
+                                .tag(category.id)  // ✅ This is the important part
+                        }
+                    }
                 }
 
                 // MARK: - Due Date & Time
@@ -46,8 +63,8 @@ struct AddTaskView: View {
                 // MARK: - Repeat
                 Section {
                     Picker("Repeat", selection: $repeatOption) {
-                        ForEach(RepeatOption.allCases) { option in
-                            Text(option.rawValue)
+                        ForEach(RepeatType.allCases) { option in
+                            Text(option.title)
                                 .tag(option)
                         }
                     }
@@ -71,6 +88,7 @@ struct AddTaskView: View {
                                 await taskStore.addTask(
                                     title: title,
                                     due: dueDate,
+                                    categoryId: selectedCategoryId,
                                     token: token
                                     // repeatOption wired later
                                 )
@@ -91,6 +109,11 @@ struct AddTaskView: View {
         }
         .onAppear {
             checkNotificationPermission()
+            Task {
+                    if categoryStore.categories.isEmpty, let token = auth.token {
+                        await categoryStore.fetchCategories(token: token)
+                    }
+                }
         }
     }
 }

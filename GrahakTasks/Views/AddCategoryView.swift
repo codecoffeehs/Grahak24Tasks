@@ -8,73 +8,21 @@ struct AddCategoryView: View {
 
     // MARK: - State
     @State private var title: String = ""
-    @State private var selectedColor: CategoryColor = .blue
+    @State private var selectedColor: CategoryColorOption = categoryColors[1] // default blue
     @State private var selectedIcon: String = "folder"
 
-    // MARK: - Icon options
     // MARK: - Icon options (SF Symbols)
     private let icons = [
-        // General
-        "folder",
-        "tag",
-        "bookmark",
-        "star",
-        "flag",
-        
-        // Work / Productivity
-        "briefcase",
-        "calendar",
-        "checklist",
-        "clock",
-        "bell",
-        
-        // Home / Personal
-        "house",
-        "bed.double",
-        "lamp.table",
-        "key",
-        
-        // Health / Fitness
-        "heart",
-        "cross.case",
-        "pills",
-        "dumbbell",
-        "figure.walk",
-        
-        // Shopping / Food
-        "cart",
-        "bag",
-        "creditcard",
-        "fork.knife",
-        "cup.and.saucer",
-        
-        // Study / Learning
-        "book",
-        "graduationcap",
-        "pencil",
-        "doc.text",
-        
-        // Travel / Outdoor
-        "airplane",
-        "car",
-        "map",
-        "camera",
-        "sun.max",
-        
-        // Social / People
-        "person",
-        "person.2",
-        "message",
-        "phone",
-        
-        // Tech / Creative
-        "bolt",
-        "wifi",
-        "laptopcomputer",
-        "paintpalette",
-        "music.note"
+        "folder", "tag", "bookmark", "star", "flag",
+        "briefcase", "calendar", "checklist", "clock", "bell",
+        "house", "bed.double", "lamp.table", "key",
+        "heart", "cross.case", "pills", "dumbbell", "figure.walk",
+        "cart", "bag", "creditcard", "fork.knife", "cup.and.saucer",
+        "book", "graduationcap", "pencil", "doc.text",
+        "airplane", "car", "map", "camera", "sun.max",
+        "person", "person.2", "message", "phone",
+        "bolt", "wifi", "laptopcomputer", "paintpalette", "music.note"
     ]
-
 
     // MARK: - Validation
     private var trimmedTitle: String {
@@ -89,40 +37,43 @@ struct AddCategoryView: View {
         NavigationStack {
             Form {
 
-                // MARK: - Name
-                Section("Title"){
+                // MARK: - Title
+                Section("Title") {
                     TextField("Category name", text: $title)
                         .textInputAutocapitalization(.sentences)
                 }
-                
-                // MARK: - Color
-                Section("Color"){
-                    ScrollView(.horizontal,showsIndicators: false){
-                        HStack{
-                            ForEach(CategoryColor.allCases){
-                                color in
-                                Circle()
-                                    .fill(color.color)
-                                    .frame(width:45,height: 45)
-                                    .padding(4)
-                                    .overlay(
+
+                // MARK: - Color (SELECTABLE)
+                Section("Color") {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 30) {
+                            ForEach(categoryColors) { option in
+                                ZStack {
+                                    if option.hex == selectedColor.hex {
                                         Circle()
-                                            .strokeBorder(
-                                                color == selectedColor ? selectedColor.color : Color.clear,
-                                                lineWidth: 2
-                                            )
-                                    )
-                                    .onTapGesture {
-                                        let generator = UISelectionFeedbackGenerator()
-                                                        generator.selectionChanged()
-                                        selectedColor = color
+                                            .stroke(option.color, lineWidth: 3)
+                                            .frame(width: 60, height: 60)
                                     }
+
+                                    // Inner fill circle
+                                    Circle()
+                                        .fill(option.color)
+                                        .frame(width: 50, height: 50)
+                                }
+                                .contentShape(Circle())
+                                .onTapGesture {
+                                    let generator = UISelectionFeedbackGenerator()
+                                    generator.selectionChanged()
+                                    selectedColor = option
+                                }
                             }
                         }
+                        .padding(.vertical, 10)
+                        .padding(.horizontal, 4)
                     }
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 6)
+
+
                 // MARK: - Icon
                 Section("Icon") {
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -130,49 +81,52 @@ struct AddCategoryView: View {
                             ForEach(icons, id: \.self) { icon in
                                 Image(systemName: icon)
                                     .font(.system(size: 22, weight: .semibold))
-                                    .foregroundStyle(selectedIcon == icon ? selectedColor.color : .secondary)
+                                    .foregroundStyle(
+                                        selectedIcon == icon ? selectedColor.color : .secondary
+                                    )
                                     .frame(width: 44, height: 44)
                                     .background(.ultraThinMaterial, in: Circle())
                                     .overlay(
                                         Circle()
-                                            .stroke(selectedIcon == icon ? selectedColor.color : .clear, lineWidth: 2)
+                                            .stroke(
+                                                selectedIcon == icon ? selectedColor.color : .clear,
+                                                lineWidth: 2
+                                            )
                                     )
+                                    .contentShape(Circle())
                                     .onTapGesture {
+                                        let generator = UISelectionFeedbackGenerator()
+                                        generator.selectionChanged()
                                         selectedIcon = icon
                                     }
                             }
                         }
-                        .padding(.horizontal, 8)
                         .padding(.vertical, 6)
                     }
                 }
 
-                // MARK: - Category Preview
-                Section("Preview"){
+                // MARK: - Preview
+                Section("Preview") {
                     CategoryRow(
-                        title: title.isEmpty ? "Category" : title,
+                        title: trimmedTitle.isEmpty ? "Category" : trimmedTitle,
                         icon: selectedIcon,
-                        color: selectedColor.rawValue,
-                        totalTasks: 10
+                        colorHex: selectedColor.hex,
+                        totalTasks: 0
                     )
-
                 }
-                
-                
-                
             }
             .navigationTitle("New Category")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
 
-                // MARK: - Save
+                // Save
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Save") {
                         Task {
                             if let token = auth.token {
                                 await categoryStore.createCategory(
                                     title: trimmedTitle,
-                                    color: selectedColor.rawValue,
+                                    color: selectedColor.hex,   // ✅ send HEX to backend
                                     icon: selectedIcon,
                                     token: token
                                 )
@@ -180,10 +134,10 @@ struct AddCategoryView: View {
                             }
                         }
                     }
-                    .disabled(!isTitleValid)
+                    .disabled(!isTitleValid || categoryStore.isLoading)
                 }
 
-                // MARK: - Cancel
+                // Cancel
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Cancel") {
                         dismiss()
@@ -194,7 +148,7 @@ struct AddCategoryView: View {
     }
 }
 
-#Preview{
+#Preview {
     AddCategoryView()
         .environmentObject(CategoryStore())
         .environmentObject(AuthStore())

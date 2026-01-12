@@ -30,7 +30,7 @@ struct CategoryView: View {
                                 CategoryRow(
                                     title: category.title,
                                     icon: category.icon,
-                                    color: category.color,
+                                    colorHex: category.color,
                                     totalTasks: 0
                                 )
                             }

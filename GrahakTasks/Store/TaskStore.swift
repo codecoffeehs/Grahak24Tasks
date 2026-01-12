@@ -9,6 +9,22 @@ class TaskStore: ObservableObject {
     @Published var errorMessage: String?
     @Published var showErrorAlert: Bool = false
 
+    // MARK: - Fetch Recent Tasks
+    func fetchRecentTasks(token: String) async {
+        isLoading = true
+        errorMessage = nil
+
+        do {
+            let response = try await TaskApi.fetchRecentTasks(token: token)
+            tasks = response
+        } catch {
+            errorMessage = error.localizedDescription
+            showErrorAlert = true
+        }
+
+        isLoading = false
+    }
+    
     // MARK: - Fetch
     func fetchTasks(token: String) async {
         isLoading = true
@@ -29,6 +45,7 @@ class TaskStore: ObservableObject {
     func addTask(
         title: String,
         due: Date,
+        categoryId:String,
         token: String
     ) async {
         isLoading = true
@@ -46,6 +63,7 @@ class TaskStore: ObservableObject {
             let newTask = try await TaskApi.createTask(
                 title: title,
                 due: due,
+                categoryId: categoryId,
                 token: token
             )
 

@@ -3,7 +3,30 @@ import Foundation
 struct TaskApi {
 
     static let baseURL = "https://api.grahak24.com/tasks"
+    
+    // MARK: - Fetch Recent Tasks
+    static func fetchRecentTasks(token: String) async throws -> [TaskModel] {
+        guard let url = URL(string: "\(baseURL)/task/recent") else {
+            throw ApiError(message: "Invalid URL")
+        }
 
+        var request = NetworkHelpers.authorizedRequest(url: url, token: token)
+        request.httpMethod = "GET"
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let http = response as? HTTPURLResponse else {
+            throw ApiError(message: "Invalid server response")
+        }
+
+        if http.statusCode == 200 {
+            return try JSONDecoder().decode([TaskModel].self, from: data)
+        } else {
+            throw ApiError(message: "Failed to fetch tasks")
+        }
+    }
+    
+    
     // MARK: - Fetch Tasks
     static func fetchTasks(token: String) async throws -> [TaskModel] {
         guard let url = URL(string: "\(baseURL)/task") else {
@@ -30,6 +53,7 @@ struct TaskApi {
     static func createTask(
         title: String,
         due: Date,
+        categoryId:String,
         token: String
     ) async throws -> TaskModel {
 
@@ -42,7 +66,8 @@ struct TaskApi {
 
         let body: [String: Any] = [
             "title": title,
-            "due": ISO8601DateFormatter().string(from: due)
+            "due": ISO8601DateFormatter().string(from: due),
+            "categoryId":categoryId
         ]
 
         request.httpBody = try JSONSerialization.data(withJSONObject: body)

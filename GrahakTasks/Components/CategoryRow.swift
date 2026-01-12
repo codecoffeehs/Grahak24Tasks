@@ -1,31 +1,26 @@
-//
-//  CategoryRow.swift
-//  GrahakTasks
-//
-//  Created by Hemant Sharma on 10/01/26.
-//
-
 import SwiftUI
 
 struct CategoryRow: View {
-    let title : String
-    let icon : String
-    let color : String
-    let totalTasks : Int
-    
-    var categoryColor: CategoryColor {
-            CategoryColor(rawValue: color) ?? .blue
-        }
+    let title: String
+    let icon: String
+    let colorHex: String
+    let totalTasks: Int?
+
+    private var categoryUIColor: Color {
+        categoryColors.first(where: { $0.hex == colorHex })?.color ?? .blue
+    }
+
     var body: some View {
         HStack(spacing: 14) {
+
             // Icon bubble
             ZStack {
                 Circle()
-                    .fill(categoryColor.color)
+                    .fill(categoryUIColor.opacity(0.18))
                     .frame(width: 44, height: 44)
 
                 Circle()
-                    .fill(categoryColor.color)
+                    .fill(categoryUIColor)
                     .frame(width: 34, height: 34)
 
                 Image(systemName: icon)
@@ -47,7 +42,7 @@ struct CategoryRow: View {
             Spacer()
 
             // Task count badge
-            Text("\(totalTasks)")
+            Text("\(totalTasks ?? 0)")
                 .font(.system(size: 13, weight: .semibold))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
@@ -61,10 +56,15 @@ struct CategoryRow: View {
         }
         .padding(.vertical, 10)
         .contentShape(Rectangle())
-
     }
 }
 
 #Preview {
-    CategoryRow(title: "Test", icon: "pencil.and.outline", color: "orange", totalTasks: 10)
+    CategoryRow(
+        title: "Finance",
+        icon: "creditcard.fill",
+        colorHex: "#FFCC00",
+        totalTasks: 10
+    )
+    .padding()
 }
