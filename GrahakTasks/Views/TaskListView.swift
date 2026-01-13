@@ -7,35 +7,6 @@ struct TaskListView: View {
 
     @State private var openTaskAddSheet = false
 
-    // MARK: - Helpers
-    private func parseDate(_ iso: String) -> Date? {
-        ISO8601DateFormatter().date(from: iso)
-    }
-
-    private var now: Date { Date() }
-    private var calendar: Calendar { .current }
-
-    private var overdueTasks: [TaskModel] {
-        taskStore.tasks.filter { task in
-            guard let date = parseDate(task.due) else { return false }
-            return date < now && !task.isCompleted
-        }
-    }
-
-    private var todayTasks: [TaskModel] {
-        taskStore.tasks.filter { task in
-            guard let date = parseDate(task.due) else { return false }
-            return calendar.isDateInToday(date)
-        }
-    }
-
-    private var upcomingTasks: [TaskModel] {
-        taskStore.tasks.filter { task in
-            guard let date = parseDate(task.due) else { return false }
-            return date > now && !calendar.isDateInToday(date)
-        }
-    }
-
     // MARK: - Row Builder
     @ViewBuilder
     private func taskRow(_ task: TaskModel) -> some View {
@@ -54,6 +25,11 @@ struct TaskListView: View {
         }
         .swipeActions(edge: .leading, allowsFullSwipe: true) {
             Button(role: .destructive) {
+                Task {
+                    if let token = auth.token {
+                        await taskStore.deleteTask(id: task.id, token: token)
+                    }
+                }
             } label: {
                 Label("Delete", systemImage: "trash")
             }
@@ -86,7 +62,7 @@ struct TaskListView: View {
                     ProgressView("Loading tasks…")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                } else if taskStore.tasks.isEmpty {
+                } else if taskStore.todayCount == 0 && taskStore.upcomingCount == 0 && taskStore.overdueCount == 0 {
                     VStack(spacing: 12) {
                         Image(systemName: "checklist")
                             .font(.system(size: 44))
@@ -102,27 +78,78 @@ struct TaskListView: View {
                     List {
 
                         // MARK: - Overdue
-                        if !overdueTasks.isEmpty {
-                            Section("Overdue (\(overdueTasks.count))") {
-                                ForEach(overdueTasks, id: \.id) { task in
+                        if taskStore.overdueCount > 0 {
+                            Section(
+                                header: HStack {
+                                    Text("Overdue")
+                                        .font(.headline)
+
+                                    Spacer()
+
+                                    NavigationLink("See All") {
+//                                        SectionTasksView(
+//                                            title: "Overdue",
+//                                            tasks: taskStore.overdueTasks
+//                                        )
+                                        Text("Overdue Tasks")
+                                    }
+                                    .font(.subheadline)
+                                    .foregroundColor(.blue)
+                                }
+                            ) {
+                                ForEach(taskStore.overdueTasks.prefix(3), id: \.id) { task in
                                     taskRow(task)
                                 }
                             }
                         }
 
                         // MARK: - Today
-                        if !todayTasks.isEmpty {
-                            Section("Today (\(todayTasks.count))") {
-                                ForEach(todayTasks, id: \.id) { task in
+                        if taskStore.todayCount > 0 {
+                            Section(
+                                header: HStack {
+                                    Text("Today")
+                                        .font(.headline)
+
+                                    Spacer()
+
+                                    NavigationLink("See All") {
+//                                        SectionTasksView(
+//                                            title: "Today",
+//                                            tasks: taskStore.todayTasks
+//                                        )
+                                        Text("Today Tasks")
+                                    }
+                                    .font(.subheadline)
+                                    .foregroundColor(.blue)
+                                }
+                            ) {
+                                ForEach(taskStore.todayTasks.prefix(5), id: \.id) { task in
                                     taskRow(task)
                                 }
                             }
                         }
 
                         // MARK: - Upcoming
-                        if !upcomingTasks.isEmpty {
-                            Section("Upcoming (\(upcomingTasks.count))") {
-                                ForEach(upcomingTasks, id: \.id) { task in
+                        if taskStore.upcomingCount > 0 {
+                            Section(
+                                header: HStack {
+                                    Text("Upcoming")
+                                        .font(.headline)
+
+                                    Spacer()
+
+                                    NavigationLink("See All") {
+//                                        SectionTasksView(
+//                                            title: "Upcoming",
+//                                            tasks: taskStore.upcomingTasks
+//                                        )
+                                        Text("Upcoming Tasks")
+                                    }
+                                    .font(.subheadline)
+                                    .foregroundColor(.blue)
+                                }
+                            ) {
+                                ForEach(taskStore.upcomingTasks.prefix(4), id: \.id) { task in
                                     taskRow(task)
                                 }
                             }

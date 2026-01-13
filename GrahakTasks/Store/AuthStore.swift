@@ -26,13 +26,13 @@ class AuthStore: ObservableObject {
     }
 
     // MARK: - Login
-    func login(username: String, password: String) async {
+    func login(email: String, password: String) async {
         isLoading = true
         errorMessage = nil
 
         do {
             let response = try await AuthAPI.login(
-                username: username,
+                email: email,
                 password: password
             )
 
@@ -54,7 +54,7 @@ class AuthStore: ObservableObject {
     // MARK: - Signup
     func signup(
         fullName: String,
-        username: String,
+        email: String,
         password: String
     ) async {
         isLoading = true
@@ -63,7 +63,7 @@ class AuthStore: ObservableObject {
         do {
             let response = try await AuthAPI.signup(
                 fullName: fullName,
-                username: username,
+                email: email,
                 password: password
             )
 

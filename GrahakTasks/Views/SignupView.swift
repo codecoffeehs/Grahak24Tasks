@@ -2,7 +2,7 @@ import SwiftUI
 
 struct SignupView: View {
     @State private var fullName = ""
-    @State private var username = ""
+    @State private var email = ""
     @State private var password = ""
 
     @EnvironmentObject var auth: AuthStore
@@ -29,7 +29,7 @@ struct SignupView: View {
                 TextField("Full name", text: $fullName)
                     .padding(.vertical, 10)
 
-                TextField("Username", text: $username)
+                TextField("Email", text: $email)
                     .padding(.vertical, 10)
                     .textInputAutocapitalization(.never)
 
@@ -38,8 +38,8 @@ struct SignupView: View {
             }
 
             //Primary Button
-            PrimaryActionButton(title:"Sign Up",isLoading: auth.isLoading,isDisabled: username.isEmpty || password.isEmpty || fullName.isEmpty || auth.isLoading){
-                await auth.signup(fullName: fullName, username: username, password: password)
+            PrimaryActionButton(title:"Sign Up",isLoading: auth.isLoading,isDisabled: email.isEmpty || password.isEmpty || fullName.isEmpty || auth.isLoading){
+                await auth.signup(fullName: fullName, email: email, password: password)
             }
 
             // Navigation

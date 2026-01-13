@@ -1,13 +1,13 @@
 import Foundation
 
 struct LoginRequest: Codable {
-    let username: String
+    let email: String
     let password: String
 }
 
 struct SignupRequest: Codable {
     let fullName: String
-    let username: String
+    let email: String
     let password: String
 }
 

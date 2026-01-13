@@ -6,7 +6,7 @@ struct AuthAPI {
 
     // MARK: - Login
     static func login(
-        username: String,
+        email: String,
         password: String
     ) async throws -> AuthResponse {
 
@@ -22,7 +22,7 @@ struct AuthAPI {
 
         // 3. Body
         let body = LoginRequest(
-            username: username,
+            email: email,
             password: password
         )
 
@@ -51,7 +51,7 @@ struct AuthAPI {
     // MARK: - Signup
     static func signup(
         fullName: String,
-        username: String,
+        email: String,
         password: String
     ) async throws -> AuthResponse {
 
@@ -68,7 +68,7 @@ struct AuthAPI {
         // 3. Body
         let body = SignupRequest(
             fullName: fullName,
-            username: username,
+            email: email,
             password: password
         )
 

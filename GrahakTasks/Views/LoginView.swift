@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct LoginView: View {
-    @State private var username = ""
+    @State private var email = ""
     @State private var password = ""
     @EnvironmentObject var auth: AuthStore
     @Environment(\.colorScheme) private var colorScheme
@@ -24,7 +24,7 @@ struct LoginView: View {
 
             // Fields
             VStack(spacing: 16) {
-                TextField("Username", text: $username)
+                TextField("Email", text: $email)
                     .padding(.vertical, 10)
                     .textInputAutocapitalization(.never)
 
@@ -33,8 +33,8 @@ struct LoginView: View {
             }
             
             // Primary Button
-            PrimaryActionButton(title:"Log In",isLoading: auth.isLoading,isDisabled: username.isEmpty || password.isEmpty || auth.isLoading){
-                await auth.login(username: username, password: password)
+            PrimaryActionButton(title:"Log In",isLoading: auth.isLoading,isDisabled: email.isEmpty || password.isEmpty || auth.isLoading){
+                await auth.login(email: email, password: password)
             }
 
             // Navigation

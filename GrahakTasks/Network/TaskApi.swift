@@ -5,7 +5,7 @@ struct TaskApi {
     static let baseURL = "https://api.grahak24.com/tasks"
     
     // MARK: - Fetch Recent Tasks
-    static func fetchRecentTasks(token: String) async throws -> [TaskModel] {
+    static func fetchRecentTasks(token: String) async throws -> RecentTasksResponse {
         guard let url = URL(string: "\(baseURL)/task/recent") else {
             throw ApiError(message: "Invalid URL")
         }
@@ -20,7 +20,7 @@ struct TaskApi {
         }
 
         if http.statusCode == 200 {
-            return try JSONDecoder().decode([TaskModel].self, from: data)
+            return try JSONDecoder().decode(RecentTasksResponse.self, from: data)
         } else {
             throw ApiError(message: "Failed to fetch tasks")
         }
