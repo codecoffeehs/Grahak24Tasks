@@ -8,6 +8,6 @@ struct TaskModel: Identifiable, Codable {
 
     var categoryId: String
     var categoryTitle: String
-    var categoryColor: String
-    var categoryIcon: String
+    var color: String
+    var icon: String
 }

@@ -6,8 +6,9 @@ struct CategoryRow: View {
     let colorHex: String
     let totalTasks: Int?
 
-    private var categoryUIColor: Color {
-        categoryColors.first(where: { $0.hex == colorHex })?.color ?? .blue
+    // computed color from hex
+    private var categoryColor: Color {
+        Color(hex: colorHex)
     }
 
     var body: some View {
@@ -16,11 +17,11 @@ struct CategoryRow: View {
             // Icon bubble
             ZStack {
                 Circle()
-                    .fill(categoryUIColor.opacity(0.18))
+                    .fill(categoryColor.opacity(0.18))
                     .frame(width: 44, height: 44)
 
                 Circle()
-                    .fill(categoryUIColor)
+                    .fill(categoryColor)
                     .frame(width: 34, height: 34)
 
                 Image(systemName: icon)

@@ -88,9 +88,9 @@ struct AddTaskView: View {
                                 await taskStore.addTask(
                                     title: title,
                                     due: dueDate,
+                                    repeatType: repeatOption,
                                     categoryId: selectedCategoryId,
                                     token: token
-                                    // repeatOption wired later
                                 )
                                 dismiss()
                             }

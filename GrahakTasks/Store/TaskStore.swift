@@ -45,6 +45,7 @@ class TaskStore: ObservableObject {
     func addTask(
         title: String,
         due: Date,
+        repeatType:RepeatType,
         categoryId:String,
         token: String
     ) async {
@@ -63,6 +64,7 @@ class TaskStore: ObservableObject {
             let newTask = try await TaskApi.createTask(
                 title: title,
                 due: due,
+                repeatType: repeatType,
                 categoryId: categoryId,
                 token: token
             )

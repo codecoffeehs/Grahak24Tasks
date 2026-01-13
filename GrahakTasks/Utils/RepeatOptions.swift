@@ -23,7 +23,7 @@ enum RepeatType: Int, Codable, CaseIterable, Identifiable {
     // short labels (optional)
     var shortTitle: String {
         switch self {
-        case .none: return ""
+        case .none: return "Never"
         case .daily: return "Daily"
         case .everyOtherDay: return "Alt"
         case .weekly: return "Weekly"
