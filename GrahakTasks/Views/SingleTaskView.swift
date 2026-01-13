@@ -2,7 +2,8 @@ import SwiftUI
 
 struct SingleTaskView: View {
     let task: TaskModel
-
+    @State private var isEditing = false
+    @State private var newTaskTitle = ""
     private var categoryColor: Color { Color(hex: task.color) }
 
     private var repeatColor: Color {
@@ -36,16 +37,15 @@ struct SingleTaskView: View {
                 // MARK: - Header Card
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(alignment: .top, spacing: 12) {
-                        Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
-                            .font(.system(size: 26, weight: .semibold))
-                            .foregroundStyle(task.isCompleted ? .green : .secondary.opacity(0.45))
-
-                        Text(task.title)
-                            .font(.title2.weight(.semibold))
-                            .foregroundStyle(task.isCompleted ? .secondary : .primary)
-                            .strikethrough(task.isCompleted, color: .secondary.opacity(0.6))
-                            .fixedSize(horizontal: false, vertical: true)
-
+                        if isEditing{
+                            TextField("",text:$newTaskTitle)
+                        }else{
+                            Text(task.title)
+                                .font(.title2.weight(.semibold))
+                                .foregroundStyle(task.isCompleted ? .secondary : .primary)
+                                .strikethrough(task.isCompleted, color: .secondary.opacity(0.6))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                         Spacer()
                     }
 
@@ -89,9 +89,28 @@ struct SingleTaskView: View {
             }
             .padding(16)
         }
+        .toolbar{
+            if isEditing{
+                ToolbarItem(placement: .topBarLeading){
+                    Button("Cancel"){
+                        isEditing = false
+                    }
+                    .foregroundStyle(.red)
+                }
+            }
+           
+            ToolbarItem(placement: .topBarTrailing){
+                Button{
+                    isEditing = true
+                    newTaskTitle = task.title
+                } label:{
+                    Image(systemName: "pencil")                }
+            }
+        }
         .background(Color(.systemGroupedBackground))
-        .navigationTitle("Task")
+        .navigationTitle(isEditing ? "Editing" : "Task")
         .navigationBarTitleDisplayMode(.inline)
+        
     }
 
     // MARK: - Simple row (no extra view file)
