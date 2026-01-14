@@ -46,4 +46,14 @@ class CategoryStore : ObservableObject{
         }
         isLoading = false
     }
+    
+    // MARK: - DELETE CATEGORY
+    func deleteCategory(categoryId:String,token:String) async{
+        do {
+            try await CategoryApi.deleteCategory(categoryId: categoryId, token: token)
+        } catch {
+            errorMessage = error.localizedDescription
+            showErrorAlert = true
+        }
+    }
 }

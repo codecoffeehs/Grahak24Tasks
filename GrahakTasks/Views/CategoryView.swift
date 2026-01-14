@@ -25,13 +25,13 @@ struct CategoryView: View {
                     List {
                         ForEach(categoryStore.categories, id: \.id) { category in
                             NavigationLink {
-                                Text("Hello")
+                                CategoryTasksView(categoryId: category.id, categoryTitle: category.title)
                             } label: {
                                 CategoryRow(
                                     title: category.title,
                                     icon: category.icon,
                                     colorHex: category.color,
-                                    totalTasks: 0
+                                    totalTasks: category.tasksCount
                                 )
                             }
                         }

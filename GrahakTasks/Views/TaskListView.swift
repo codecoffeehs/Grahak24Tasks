@@ -83,11 +83,7 @@ struct TaskListView: View {
                                     Spacer()
 
                                     NavigationLink("See All") {
-//                                        SectionTasksView(
-//                                            title: "Overdue",
-//                                            tasks: taskStore.overdueTasks
-//                                        )
-                                        Text("Overdue Tasks")
+                                        OverdueTasksView()
                                     }
                                     .font(.subheadline)
                                     .foregroundColor(.blue)
@@ -109,11 +105,7 @@ struct TaskListView: View {
                                     Spacer()
 
                                     NavigationLink("See All") {
-//                                        SectionTasksView(
-//                                            title: "Today",
-//                                            tasks: taskStore.todayTasks
-//                                        )
-                                        Text("Today Tasks")
+                                        TodayTasksView()
                                     }
                                     .font(.subheadline)
                                     .foregroundColor(.blue)
@@ -135,11 +127,7 @@ struct TaskListView: View {
                                     Spacer()
 
                                     NavigationLink("See All") {
-//                                        SectionTasksView(
-//                                            title: "Upcoming",
-//                                            tasks: taskStore.upcomingTasks
-//                                        )
-                                        Text("Upcoming Tasks")
+                                        UpcomingTasksView()
                                     }
                                     .font(.subheadline)
                                     .foregroundColor(.blue)

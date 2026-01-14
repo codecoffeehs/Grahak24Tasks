@@ -43,22 +43,39 @@ struct AddCategoryView: View {
                         .textInputAutocapitalization(.sentences)
                 }
 
-                // MARK: - Color (SELECTABLE)
+                // MARK: - Color (Minimal Apple-like)
                 Section("Color") {
                     ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 30) {
+                        HStack(spacing: 12) {
                             ForEach(categoryColors) { option in
-                                ZStack {
-                                    if option.hex == selectedColor.hex {
-                                        Circle()
-                                            .stroke(option.color, lineWidth: 3)
-                                            .frame(width: 60, height: 60)
-                                    }
+                                let isSelected = option.hex == selectedColor.hex
 
-                                    // Inner fill circle
+                                ZStack {
+                                    // Hit target 44x44, visually smaller chip inside
+                                    Circle()
+                                        .fill(.clear)
+                                        .frame(width: 44, height: 44)
+
+                                    // Visual chip
                                     Circle()
                                         .fill(option.color)
-                                        .frame(width: 50, height: 50)
+                                        .frame(width: 28, height: 28)
+                                        // subtle inner hairline stroke to keep contrast on light/dark colors
+                                        .overlay(
+                                            Circle()
+                                                .stroke(.white.opacity(0.65), lineWidth: 0.5)
+                                                .blendMode(.overlay)
+                                        )
+                                        // selection ring
+                                        .overlay(
+                                            Circle()
+                                                .stroke(isSelected ? option.color : .clear, lineWidth: 2)
+                                                .frame(width: 36, height: 36)
+                                        )
+                                        // soft shadow only when selected for hierarchy
+                                        .shadow(color: isSelected ? option.color.opacity(0.25) : .clear, radius: 6, x: 0, y: 3)
+                                        .scaleEffect(isSelected ? 1.06 : 1.0)
+                                        .animation(.spring(response: 0.25, dampingFraction: 0.9), value: isSelected)
                                 }
                                 .contentShape(Circle())
                                 .onTapGesture {
@@ -66,13 +83,16 @@ struct AddCategoryView: View {
                                     generator.selectionChanged()
                                     selectedColor = option
                                 }
+                                .accessibilityElement(children: .ignore)
+                                .accessibilityLabel(Text("Color"))
+                                .accessibilityValue(Text(option.hex))
+                                .accessibilityAddTraits(isSelected ? .isSelected : [])
                             }
                         }
-                        .padding(.vertical, 10)
-                        .padding(.horizontal, 4)
+                        .padding(.vertical, 6)
+                        .padding(.horizontal, 2)
                     }
                 }
-
 
                 // MARK: - Icon
                 Section("Icon") {

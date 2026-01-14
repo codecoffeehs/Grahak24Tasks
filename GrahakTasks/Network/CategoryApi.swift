@@ -48,5 +48,26 @@ struct CategoryApi{
         return try JSONDecoder().decode(CategoryModel.self, from: data)
     }
 
-    
+    // MARK: - DELETE CATEGORY
+    static func deleteCategory(categoryId:String,token:String) async throws {
+        guard let url = URL(string: "\(baseURL)/task/catergory/delete/\(categoryId)") else {
+            throw ApiError(message: "Invalid URL")
+        }
+
+        var request = NetworkHelpers.authorizedRequest(
+            url: url,
+            token: token
+        )
+        request.httpMethod = "DELETE"
+
+        let (_, response) = try await URLSession.shared.data(for: request)
+
+        guard let http = response as? HTTPURLResponse else {
+            throw ApiError(message: "Invalid server response")
+        }
+
+        if http.statusCode != 200 && http.statusCode != 204 {
+            throw ApiError(message: "Failed to delete category")
+        }
+    }
 }

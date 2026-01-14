@@ -21,6 +21,13 @@ class TaskStore: ObservableObject {
     @Published var errorMessage: String?
     @Published var showErrorAlert: Bool = false
 
+    // MARK: - Separate Task Page
+    @Published var allTodayTasks : [TaskModel] = []
+    @Published var allUpcomingTasks : [TaskModel] = []
+    @Published var allOverdueTasks : [TaskModel] = []
+    
+    // MARK: - Tasks For Category
+    @Published var categoryTasks: [TaskModel] = []
     // MARK: - Fetch Recent Tasks (Home)
     func fetchRecentTasks(token: String) async {
         isLoading = true
@@ -105,6 +112,7 @@ class TaskStore: ObservableObject {
         isLoading = false
     }
 
+
     // MARK: - Toggle Task
     func toggleTask(
         id: String,
@@ -142,4 +150,67 @@ class TaskStore: ObservableObject {
             showErrorAlert = true
         }
     }
+    
+    // MARK: - FETCH TODAY TASKS
+    func fetchTodayTasks(token:String) async{
+        isLoading = true
+        errorMessage = nil
+        do{
+            let response = try await TaskApi.fetchTodayTasks(token: token)
+            allTodayTasks = response
+        }catch {
+                errorMessage = error.localizedDescription
+                showErrorAlert = true
+            }
+
+            isLoading = false
+            
+        }
+    
+    // MARK: - FETCH UPCOMING TASKS
+    func fetchUpcomingTasks(token:String) async{
+        isLoading = true
+        errorMessage = nil
+        do{
+            let response = try await TaskApi.fetchUpcomingTasks(token: token)
+            allUpcomingTasks = response
+        }catch {
+                errorMessage = error.localizedDescription
+                showErrorAlert = true
+            }
+
+            isLoading = false
+            
+        }
+    
+    // MARK: - FETCH OVERDUE TASKS
+    func fetchOverdueTasks(token:String) async{
+        isLoading = true
+        errorMessage = nil
+        do{
+            let response = try await TaskApi.fetchOverdueTasks(token: token)
+            allOverdueTasks = response
+        }catch {
+                errorMessage = error.localizedDescription
+                showErrorAlert = true
+            }
+
+            isLoading = false
+            
+        }
+    // MARK: - Fetch Tasks For Category
+    func fetchTasksForCategory(token:String,categoryId:String) async{
+        isLoading = true
+        errorMessage = nil
+        do{
+            let response = try await TaskApi.fetchTasksForCategory(token: token, categoryId: categoryId)
+            categoryTasks = response
+        }catch {
+                errorMessage = error.localizedDescription
+                showErrorAlert = true
+        }
+
+            isLoading = false
+    }
 }
+
