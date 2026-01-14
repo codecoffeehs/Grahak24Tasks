@@ -53,4 +53,18 @@ class NotificationManager {
 
         center.add(request)
     }
+    
+    // ✅ Cancel single task notification
+    func cancelTaskNotification(id: String) {
+        let center = UNUserNotificationCenter.current()
+
+        // removes scheduled notifications
+        center.removePendingNotificationRequests(withIdentifiers: [id])
+
+        // also removes already delivered banner from notification center (optional but nice)
+        center.removeDeliveredNotifications(withIdentifiers: [id])
+
+        print("🛑 Cancelled notification for task:", id)
+    }
+
 }

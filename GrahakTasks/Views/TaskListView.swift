@@ -60,20 +60,16 @@ struct TaskListView: View {
             Group {
                 if taskStore.isLoading {
                     ProgressView("Loading tasks…")
+                        .progressViewStyle(.circular)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 } else if taskStore.todayCount == 0 && taskStore.upcomingCount == 0 && taskStore.overdueCount == 0 {
-                    VStack(spacing: 12) {
-                        Image(systemName: "checklist")
-                            .font(.system(size: 44))
-                            .foregroundColor(.secondary)
-
-                        Text("Nothing scheduled")
-                            .font(.callout)
-                            .foregroundColor(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-
+                        ContentUnavailableView(
+                            "Nothing Coming Up Your Way!",
+                            systemImage: "sun.max",
+                            description: Text("That’s either impressive… or you forgot to add them.")
+                        )
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     List {
 
@@ -81,7 +77,7 @@ struct TaskListView: View {
                         if taskStore.overdueCount > 0 {
                             Section(
                                 header: HStack {
-                                    Text("Overdue")
+                                    Text("Overdue (\(taskStore.overdueCount))")
                                         .font(.headline)
 
                                     Spacer()
@@ -107,7 +103,7 @@ struct TaskListView: View {
                         if taskStore.todayCount > 0 {
                             Section(
                                 header: HStack {
-                                    Text("Today")
+                                    Text("Today (\(taskStore.todayCount))")
                                         .font(.headline)
 
                                     Spacer()
@@ -133,7 +129,7 @@ struct TaskListView: View {
                         if taskStore.upcomingCount > 0 {
                             Section(
                                 header: HStack {
-                                    Text("Upcoming")
+                                    Text("Upcoming (\(taskStore.upcomingCount))")
                                         .font(.headline)
 
                                     Spacer()

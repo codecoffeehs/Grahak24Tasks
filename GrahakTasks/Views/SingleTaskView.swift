@@ -4,6 +4,7 @@ struct SingleTaskView: View {
     let task: TaskModel
     @State private var isEditing = false
     @State private var newTaskTitle = ""
+    
     private var categoryColor: Color { Color(hex: task.color) }
 
     private var repeatColor: Color {
@@ -98,18 +99,23 @@ struct SingleTaskView: View {
                     .foregroundStyle(.red)
                 }
             }
-           
-            ToolbarItem(placement: .topBarTrailing){
-                Button{
-                    isEditing = true
-                    newTaskTitle = task.title
-                } label:{
-                    Image(systemName: "pencil")                }
+            if !isEditing{
+                ToolbarItem(placement: .topBarTrailing){
+                    Button{
+                        isEditing = true
+                        newTaskTitle = task.title
+                    } label:{
+                        Image(systemName: "pencil")              }
+                }
             }
+        }
+        .onDisappear{
+            isEditing = false
         }
         .background(Color(.systemGroupedBackground))
         .navigationTitle(isEditing ? "Editing" : "Task")
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(isEditing)
         
     }
 

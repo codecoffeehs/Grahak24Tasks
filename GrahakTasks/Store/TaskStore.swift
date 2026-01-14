@@ -112,9 +112,10 @@ class TaskStore: ObservableObject {
     ) async {
         do {
             _ = try await TaskApi.toggleTask(taskId: id, token: token)
-
+            
+            NotificationManager.shared.cancelTaskNotification(id: id)
             // ✅ Refresh Home sections (keeps ordering + sections accurate)
-//            await fetchRecentTasks(token: token)
+            await fetchRecentTasks(token: token)
 
         } catch {
             errorMessage = error.localizedDescription
@@ -131,7 +132,7 @@ class TaskStore: ObservableObject {
             try await TaskApi.deleteTask(taskId: id, token: token)
 
             // cancel notification
-//            NotificationManager.shared(id: id)
+            NotificationManager.shared.cancelTaskNotification(id: id)
 
             // ✅ Refresh Home sections
             await fetchRecentTasks(token: token)
