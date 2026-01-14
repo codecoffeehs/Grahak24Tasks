@@ -4,9 +4,31 @@ struct SignupView: View {
     @State private var fullName = ""
     @State private var email = ""
     @State private var password = ""
+    @State private var showPassword = false
 
+    @FocusState private var focusedField: Field?
     @EnvironmentObject var auth: AuthStore
     @Environment(\.colorScheme) private var colorScheme
+
+    enum Field {
+        case fullName
+        case email
+        case password
+    }
+
+    // Minimal validation similar to LoginView
+    private var isEmailValid: Bool {
+        let trimmed = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.contains("@") && trimmed.contains(".")
+    }
+
+    private var isNameValid: Bool {
+        fullName.trimmingCharacters(in: .whitespacesAndNewlines).count >= 2
+    }
+
+    private var canSubmit: Bool {
+        isNameValid && !email.isEmpty && !password.isEmpty && isEmailValid && !auth.isLoading
+    }
 
     var body: some View {
 
@@ -24,22 +46,96 @@ struct SignupView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            // Fields
-            VStack(spacing: 16) {
-                TextField("Full name", text: $fullName)
-                    .padding(.vertical, 10)
+            // Fields (minimal style)
+            VStack(spacing: 18) {
+                // Full name
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Full name")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
 
-                TextField("Email", text: $email)
-                    .padding(.vertical, 10)
-                    .textInputAutocapitalization(.never)
+                    TextField("John Appleseed", text: $fullName)
+                        .textInputAutocapitalization(.words)
+                        .disableAutocorrection(true)
+                        .textContentType(.name)
+                        .focused($focusedField, equals: .fullName)
+                        .submitLabel(.next)
+                        .onSubmit { focusedField = .email }
+                        .disabled(auth.isLoading)
 
-                SecureField("Password", text: $password)
-                    .padding(.vertical, 10)
+                    Divider()
+                        .background(underlineColor(valid: isNameValid || fullName.isEmpty))
+                }
+
+                // Email
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Email")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+
+                    TextField("you@example.com", text: $email)
+                        .keyboardType(.emailAddress)
+                        .textInputAutocapitalization(.never)
+                        .disableAutocorrection(true)
+                        .textContentType(.emailAddress)
+                        .focused($focusedField, equals: .email)
+                        .submitLabel(.next)
+                        .onSubmit { focusedField = .password }
+                        .disabled(auth.isLoading)
+
+                    Divider()
+                        .background(underlineColor(valid: isEmailValid || email.isEmpty))
+                }
+
+                // Password
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Password")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+
+                    HStack(spacing: 8) {
+                        Group {
+                            if showPassword {
+                                TextField("Create a password", text: $password)
+                            } else {
+                                SecureField("Create a password", text: $password)
+                            }
+                        }
+                        .textContentType(.newPassword)
+                        .focused($focusedField, equals: .password)
+                        .submitLabel(.go)
+                        .onSubmit {
+                            if canSubmit {
+                                Task { await performSignup() }
+                            } else {
+                                warningImpact()
+                            }
+                        }
+                        .disabled(auth.isLoading)
+
+                        Button {
+                            showPassword.toggle()
+                            lightImpact()
+                        } label: {
+                            Image(systemName: showPassword ? "eye.slash" : "eye")
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(showPassword ? "Hide password" : "Show password")
+                    }
+
+                    Divider()
+                        .background(underlineColor(valid: !password.isEmpty || password.isEmpty))
+                }
             }
 
-            //Primary Button
-            PrimaryActionButton(title:"Sign Up",isLoading: auth.isLoading,isDisabled: email.isEmpty || password.isEmpty || fullName.isEmpty || auth.isLoading){
-                await auth.signup(fullName: fullName, email: email, password: password)
+            // Primary Button
+            PrimaryActionButton(
+                title: auth.isLoading ? "Creating account…" : "Sign Up",
+                isLoading: auth.isLoading,
+                isDisabled: !canSubmit
+            ) {
+                await performSignup()
             }
 
             // Navigation
@@ -61,26 +157,29 @@ struct SignupView: View {
             Color(.systemBackground).ignoresSafeArea()
         )
 
+        // Top decorative overlay (to match LoginView’s stronger styling)
         .overlay(alignment: .topTrailing) {
             ZStack {
                 RoundedRectangle(cornerRadius: 130, style: .continuous)
-                    .stroke(Color.orange.opacity(0.08), lineWidth: 1)
+                    .stroke(Color.orange.opacity(0.10), lineWidth: 1)
                     .frame(width: 480, height: 340)
                     .rotationEffect(.degrees(14))
 
                 RoundedRectangle(cornerRadius: 120, style: .continuous)
-                    .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+                    .stroke(Color.primary.opacity(0.07), lineWidth: 1)
                     .frame(width: 440, height: 310)
                     .rotationEffect(.degrees(14))
 
                 RoundedRectangle(cornerRadius: 110, style: .continuous)
-                    .stroke(Color.primary.opacity(0.035), lineWidth: 1)
+                    .stroke(Color.primary.opacity(0.04), lineWidth: 1)
                     .frame(width: 400, height: 280)
                     .rotationEffect(.degrees(14))
             }
             .offset(x: 200, y: -120)
             .allowsHitTesting(false)
         }
+
+        // Bottom decorative overlay (subtle)
         .overlay(alignment: .bottomLeading) {
             ZStack {
                 RoundedRectangle(cornerRadius: 100, style: .continuous)
@@ -97,14 +196,70 @@ struct SignupView: View {
             .allowsHitTesting(false)
         }
 
-
         .alert("Error", isPresented: $auth.showErrorAlert) {
             Button("OK", role: .cancel) {}
         } message: {
             Text(auth.errorMessage ?? "Couldn't sign up")
         }
+        .onAppear {
+            // Focus full name initially
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                if fullName.isEmpty { focusedField = .fullName }
+            }
+        }
+        // Haptics on state changes
+        .onChange(of: auth.showErrorAlert) { _, newValue in
+            if newValue { errorHaptic() }
+        }
+        .onChange(of: auth.isAuthenticated) { _, newValue in
+            if newValue { successHaptic() }
+        }
+    }
+
+    // Minimal underline color logic (consistent with LoginView)
+    private func underlineColor(valid: Bool) -> Color {
+        if auth.isLoading { return Color.gray.opacity(0.3) }
+        return valid ? Color.secondary.opacity(0.25) : Color.red.opacity(0.6)
+    }
+
+    private func performSignup() async {
+        await auth.signup(
+            fullName: fullName.trimmingCharacters(in: .whitespacesAndNewlines),
+            email: email.trimmingCharacters(in: .whitespacesAndNewlines),
+            password: password
+        )
+    }
+
+    // MARK: - Haptics
+    private func successHaptic() {
+        #if os(iOS)
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(.success)
+        #endif
+    }
+
+    private func errorHaptic() {
+        #if os(iOS)
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(.error)
+        #endif
+    }
+
+    private func warningImpact() {
+        #if os(iOS)
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(.warning)
+        #endif
+    }
+
+    private func lightImpact() {
+        #if os(iOS)
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.impactOccurred()
+        #endif
     }
 }
+
 #Preview{
     SignupView().environmentObject(AuthStore())
 }

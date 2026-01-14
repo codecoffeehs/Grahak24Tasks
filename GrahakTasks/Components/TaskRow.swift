@@ -23,41 +23,38 @@ struct TaskRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-
+            // Completion indicator: subtle when incomplete, clear when complete
             Image(systemName: isCompleted ? "checkmark.circle.fill" : "circle")
-                .font(.system(size: 20, weight: .medium))
-                .foregroundStyle(isCompleted ? .green : .secondary.opacity(0.4))
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(isCompleted ? .green : .secondary)
                 .padding(.top, 1)
 
             VStack(alignment: .leading, spacing: 6) {
-
+                // Title with subtle strike-through when completed
                 Text(title)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(isCompleted ? .secondary : .primary)
-                    .strikethrough(isCompleted, color: .secondary.opacity(0.5))
+                    .strikethrough(isCompleted, color: .secondary.opacity(0.45))
                     .lineLimit(1)
                     .truncationMode(.tail)
 
-                // Pills row: try single-line first, otherwise wrap.
+                // Metadata chips
                 ViewThatFits(in: .horizontal) {
-
-                    // ✅ 1-line layout (preferred)
-                    HStack(spacing: 6) {
-                        duePill
-                        repeatPill
-                        categoryPill
+                    // Preferred single-line
+                    HStack(spacing: 8) {
+                        dueChip
+                        repeatChip
+                        categoryChip
                     }
 
-                    // ✅ Wrapped layout fallback
+                    // Wrapped fallback
                     VStack(alignment: .leading, spacing: 6) {
-                        HStack(spacing: 6) {
-                            duePill
-                            repeatPill
+                        HStack(spacing: 8) {
+                            dueChip
+                            repeatChip
                         }
-
-                        // if due/repeat are huge, category still stays clean
-                        HStack(spacing: 6) {
-                            categoryPill
+                        HStack(spacing: 8) {
+                            categoryChip
                         }
                     }
                 }
@@ -65,61 +62,94 @@ struct TaskRow: View {
 
             Spacer(minLength: 0)
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 10)
         .contentShape(Rectangle())
         .opacity(isCompleted ? 0.55 : 1)
     }
 
-    // MARK: - Pills (still inside same component)
+    // MARK: - Minimal Chips
 
     @ViewBuilder
-    private var duePill: some View {
+    private var dueChip: some View {
         if let dueInfo = DateParser.parseDueDate(from: due) {
             HStack(spacing: 4) {
                 Image(systemName: "calendar")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(size: 11, weight: .semibold))
                 Text(dueInfo.text)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: 12, weight: .semibold))
                     .lineLimit(1)
             }
             .foregroundStyle(dueInfo.isOverdue ? .red : .secondary)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(Color(.systemGray6), in: Capsule())
+            .background(
+                Capsule()
+                    .fill(chipBackground(for: dueInfo.isOverdue ? .red : .secondary))
+            )
+            .overlay(
+                Capsule()
+                    .stroke(chipStroke(for: dueInfo.isOverdue ? .red : .secondary), lineWidth: 0.5)
+            )
             .fixedSize(horizontal: true, vertical: false)
         }
     }
 
     @ViewBuilder
-    private var repeatPill: some View {
+    private var repeatChip: some View {
         if repeatType != .none {
             HStack(spacing: 4) {
                 Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(size: 11, weight: .semibold))
                 Text(repeatType.shortTitle)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: 12, weight: .semibold))
                     .lineLimit(1)
             }
             .foregroundStyle(repeatColor)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(repeatColor.opacity(0.12), in: Capsule())
+            .background(
+                Capsule()
+                    .fill(chipBackground(for: repeatColor))
+            )
+            .overlay(
+                Capsule()
+                    .stroke(chipStroke(for: repeatColor), lineWidth: 0.5)
+            )
             .fixedSize(horizontal: true, vertical: false)
         }
     }
 
-    private var categoryPill: some View {
+    private var categoryChip: some View {
         HStack(spacing: 4) {
             Image(systemName: categoryIcon)
-                .font(.system(size: 11, weight: .medium))
+                .font(.system(size: 11, weight: .semibold))
             Text(categoryTitle)
-                .font(.system(size: 12, weight: .medium))
+                .font(.system(size: 12, weight: .semibold))
                 .lineLimit(1)
         }
         .foregroundStyle(categoryColor)
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
-        .background(categoryColor.opacity(0.12), in: Capsule())
+        .background(
+            Capsule()
+                .fill(chipBackground(for: categoryColor))
+        )
+        .overlay(
+            Capsule()
+                .stroke(chipStroke(for: categoryColor), lineWidth: 0.5)
+        )
         .fixedSize(horizontal: true, vertical: false)
+    }
+
+    // MARK: - Chip styling helpers
+
+    private func chipBackground(for color: Color) -> Color {
+        // Soft, adaptive background using the color at low opacity
+        color.opacity(0.10)
+    }
+
+    private func chipStroke(for color: Color) -> Color {
+        // Very subtle outline to keep definition without heaviness
+        color.opacity(0.18)
     }
 }
