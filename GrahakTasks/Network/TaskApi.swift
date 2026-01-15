@@ -3,7 +3,7 @@ import Foundation
 struct TaskApi {
 
     static let baseURL = "https://api.grahak24.com/tasks"
-    
+
     // MARK: - Fetch Recent Tasks
     static func fetchRecentTasks(token: String) async throws -> RecentTasksResponse {
         guard let url = URL(string: "\(baseURL)/task/recent") else {
@@ -19,14 +19,19 @@ struct TaskApi {
             throw ApiError(message: "Invalid server response")
         }
 
-        if http.statusCode == 200 {
+        if (200...299).contains(http.statusCode) {
             return try JSONDecoder().decode(RecentTasksResponse.self, from: data)
-        } else {
-            throw ApiError(message: "Failed to fetch tasks")
         }
+
+        if let apiError = try? JSONDecoder().decode(ApiErrorResponse.self, from: data) {
+            throw ApiError(message: apiError.message)
+        }
+
+        let raw = String(data: data, encoding: .utf8) ?? "Failed to fetch recent tasks"
+        throw ApiError(message: raw)
     }
-    
-    
+
+
     // MARK: - Fetch Tasks
     static func fetchTasks(token: String) async throws -> [TaskModel] {
         guard let url = URL(string: "\(baseURL)/task") else {
@@ -42,20 +47,25 @@ struct TaskApi {
             throw ApiError(message: "Invalid server response")
         }
 
-        if http.statusCode == 200 {
+        if (200...299).contains(http.statusCode) {
             return try JSONDecoder().decode([TaskModel].self, from: data)
-        } else {
-            throw ApiError(message: "Failed to fetch tasks")
         }
+
+        if let apiError = try? JSONDecoder().decode(ApiErrorResponse.self, from: data) {
+            throw ApiError(message: apiError.message)
+        }
+
+        let raw = String(data: data, encoding: .utf8) ?? "Failed to fetch tasks"
+        throw ApiError(message: raw)
     }
 
-    
+
     // MARK: - Create Task
     static func createTask(
         title: String,
         due: Date,
         repeatType: RepeatType,
-        categoryId:String,
+        categoryId: String,
         token: String
     ) async throws -> TaskModel {
 
@@ -65,6 +75,7 @@ struct TaskApi {
 
         var request = NetworkHelpers.authorizedRequest(url: url, token: token)
         request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let body: [String: Any] = [
             "title": title,
@@ -81,70 +92,77 @@ struct TaskApi {
             throw ApiError(message: "Invalid server response")
         }
 
-        if http.statusCode == 201 || http.statusCode == 200 {
+        if (200...299).contains(http.statusCode) {
             return try JSONDecoder().decode(TaskModel.self, from: data)
-        } else {
-            throw ApiError(message: "Failed to create task")
         }
+
+        if let apiError = try? JSONDecoder().decode(ApiErrorResponse.self, from: data) {
+            throw ApiError(message: apiError.message)
+        }
+
+        let raw = String(data: data, encoding: .utf8) ?? "Failed to create task"
+        throw ApiError(message: raw)
     }
-    
+
+
     // MARK: - Toggle Task
-    static func toggleTask(
-        taskId: String,
-        token: String
-    ) async throws -> TaskModel {
-        
+    static func toggleTask(taskId: String, token: String) async throws -> TaskModel {
+
         guard let url = URL(string: "\(baseURL)/task/toggle/\(taskId)") else {
             throw ApiError(message: "Invalid URL")
         }
-        
-        var request = NetworkHelpers.authorizedRequest(
-            url: url,
-            token: token
-        )
+
+        var request = NetworkHelpers.authorizedRequest(url: url, token: token)
         request.httpMethod = "PATCH"
-        
+
         let (data, response) = try await URLSession.shared.data(for: request)
-        
+
         guard let http = response as? HTTPURLResponse else {
             throw ApiError(message: "Invalid server response")
         }
-        
-        if http.statusCode == 200 {
+
+        if (200...299).contains(http.statusCode) {
             return try JSONDecoder().decode(TaskModel.self, from: data)
-        } else {
-            throw ApiError(message: "Failed to toggle task")
         }
-        
+
+        if let apiError = try? JSONDecoder().decode(ApiErrorResponse.self, from: data) {
+            throw ApiError(message: apiError.message)
+        }
+
+        let raw = String(data: data, encoding: .utf8) ?? "Failed to toggle task"
+        throw ApiError(message: raw)
     }
-    
+
+
     // MARK: - Delete Task
-    static func deleteTask(
-        taskId: String,
-        token: String
-    ) async throws {
+    static func deleteTask(taskId: String, token: String) async throws {
 
         guard let url = URL(string: "\(baseURL)/task/delete/\(taskId)") else {
             throw ApiError(message: "Invalid URL")
         }
 
-        var request = NetworkHelpers.authorizedRequest(
-            url: url,
-            token: token
-        )
+        var request = NetworkHelpers.authorizedRequest(url: url, token: token)
         request.httpMethod = "DELETE"
 
-        let (_, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await URLSession.shared.data(for: request)
 
         guard let http = response as? HTTPURLResponse else {
             throw ApiError(message: "Invalid server response")
         }
 
-        if http.statusCode != 200 && http.statusCode != 204 {
-            throw ApiError(message: "Failed to delete task")
+        if (200...299).contains(http.statusCode) {
+            return
         }
+
+        if let apiError = try? JSONDecoder().decode(ApiErrorResponse.self, from: data) {
+            throw ApiError(message: apiError.message)
+        }
+
+        let raw = String(data: data, encoding: .utf8) ?? "Failed to delete task"
+        throw ApiError(message: raw)
     }
-    
+
+
     // MARK: - Edit Task
     static func editTask(
         taskId: String,
@@ -164,28 +182,13 @@ struct TaskApi {
         request.httpMethod = "PATCH"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        // Only include fields that are being changed
         var body: [String: Any] = [:]
 
-        if let title {
-            body["title"] = title
-        }
-
-        if let due {
-            body["due"] = ISO8601DateFormatter().string(from: due)
-        }
-
-        if let isCompleted {
-            body["isCompleted"] = isCompleted
-        }
-
-        if let repeatType {
-            body["repeat"] = repeatType.rawValue
-        }
-        
-        if let taskCategoryId {
-            body["taskCategoryId"] = taskCategoryId
-        }
+        if let title { body["title"] = title }
+        if let due { body["due"] = ISO8601DateFormatter().string(from: due) }
+        if let isCompleted { body["isCompleted"] = isCompleted }
+        if let repeatType { body["repeat"] = repeatType.rawValue }
+        if let taskCategoryId { body["taskCategoryId"] = taskCategoryId }
 
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
@@ -195,23 +198,25 @@ struct TaskApi {
             throw ApiError(message: "Invalid server response")
         }
 
-        if http.statusCode == 200 {
+        if (200...299).contains(http.statusCode) {
             return try JSONDecoder().decode(TaskModel.self, from: data)
-        } else {
-            if let apiError = try? JSONDecoder().decode(ApiErrorResponse.self, from: data) {
-                throw ApiError(message: apiError.message)
-            } else {
-                let raw = String(data: data, encoding: .utf8) ?? "No error body"
-                throw ApiError(message: "Failed to edit task (\(http.statusCode)): \(raw)")
-            }
         }
+
+        if let apiError = try? JSONDecoder().decode(ApiErrorResponse.self, from: data) {
+            throw ApiError(message: apiError.message)
+        }
+
+        let raw = String(data: data, encoding: .utf8) ?? "Failed to edit task"
+        throw ApiError(message: raw)
     }
-    
+
+
     // MARK: - Fetch Today Tasks
-    static func fetchTodayTasks(token:String) async throws -> [TaskModel]{
+    static func fetchTodayTasks(token: String) async throws -> [TaskModel] {
         guard let url = URL(string: "\(baseURL)/task/today") else {
             throw ApiError(message: "Invalid URL")
         }
+
         var request = NetworkHelpers.authorizedRequest(url: url, token: token)
         request.httpMethod = "GET"
 
@@ -221,19 +226,25 @@ struct TaskApi {
             throw ApiError(message: "Invalid server response")
         }
 
-        if http.statusCode == 200 {
+        if (200...299).contains(http.statusCode) {
             return try JSONDecoder().decode([TaskModel].self, from: data)
-        } else {
-            throw ApiError(message: "Failed to fetch tasks")
         }
-        
+
+        if let apiError = try? JSONDecoder().decode(ApiErrorResponse.self, from: data) {
+            throw ApiError(message: apiError.message)
+        }
+
+        let raw = String(data: data, encoding: .utf8) ?? "Failed to fetch today tasks"
+        throw ApiError(message: raw)
     }
-    
+
+
     // MARK: - Fetch Overdue Tasks
-    static func fetchOverdueTasks(token:String) async throws -> [TaskModel]{
+    static func fetchOverdueTasks(token: String) async throws -> [TaskModel] {
         guard let url = URL(string: "\(baseURL)/task/overdue") else {
             throw ApiError(message: "Invalid URL")
         }
+
         var request = NetworkHelpers.authorizedRequest(url: url, token: token)
         request.httpMethod = "GET"
 
@@ -243,19 +254,25 @@ struct TaskApi {
             throw ApiError(message: "Invalid server response")
         }
 
-        if http.statusCode == 200 {
+        if (200...299).contains(http.statusCode) {
             return try JSONDecoder().decode([TaskModel].self, from: data)
-        } else {
-            throw ApiError(message: "Failed to fetch tasks")
         }
-        
+
+        if let apiError = try? JSONDecoder().decode(ApiErrorResponse.self, from: data) {
+            throw ApiError(message: apiError.message)
+        }
+
+        let raw = String(data: data, encoding: .utf8) ?? "Failed to fetch overdue tasks"
+        throw ApiError(message: raw)
     }
-    
+
+
     // MARK: - Fetch Upcoming Tasks
-    static func fetchUpcomingTasks(token:String) async throws -> [TaskModel]{
+    static func fetchUpcomingTasks(token: String) async throws -> [TaskModel] {
         guard let url = URL(string: "\(baseURL)/task/upcoming") else {
             throw ApiError(message: "Invalid URL")
         }
+
         var request = NetworkHelpers.authorizedRequest(url: url, token: token)
         request.httpMethod = "GET"
 
@@ -265,15 +282,21 @@ struct TaskApi {
             throw ApiError(message: "Invalid server response")
         }
 
-        if http.statusCode == 200 {
+        if (200...299).contains(http.statusCode) {
             return try JSONDecoder().decode([TaskModel].self, from: data)
-        } else {
-            throw ApiError(message: "Failed to fetch tasks")
         }
-        
+
+        if let apiError = try? JSONDecoder().decode(ApiErrorResponse.self, from: data) {
+            throw ApiError(message: apiError.message)
+        }
+
+        let raw = String(data: data, encoding: .utf8) ?? "Failed to fetch upcoming tasks"
+        throw ApiError(message: raw)
     }
+
+
     // MARK: - Fetch Tasks For Category
-    static func fetchTasksForCategory(token: String,categoryId:String) async throws -> [TaskModel] {
+    static func fetchTasksForCategory(token: String, categoryId: String) async throws -> [TaskModel] {
         guard let url = URL(string: "\(baseURL)/task/\(categoryId)") else {
             throw ApiError(message: "Invalid URL")
         }
@@ -287,11 +310,15 @@ struct TaskApi {
             throw ApiError(message: "Invalid server response")
         }
 
-        if http.statusCode == 200 {
+        if (200...299).contains(http.statusCode) {
             return try JSONDecoder().decode([TaskModel].self, from: data)
-        } else {
-            throw ApiError(message: "Failed to fetch tasks")
         }
+
+        if let apiError = try? JSONDecoder().decode(ApiErrorResponse.self, from: data) {
+            throw ApiError(message: apiError.message)
+        }
+
+        let raw = String(data: data, encoding: .utf8) ?? "Failed to fetch category tasks"
+        throw ApiError(message: raw)
     }
 }
-
