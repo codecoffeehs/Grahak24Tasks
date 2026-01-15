@@ -22,7 +22,9 @@ struct TaskListView: View {
                 repeatType: task.repeatType,
                 categoryTitle: task.categoryTitle,
                 colorHex: task.color,
-                categoryIcon: task.icon
+                categoryIcon: task.icon,
+                isShared: task.isShared,
+                sharedWithCount: task.sharedWithCount
             )
         }
         .swipeActions(edge: .leading, allowsFullSwipe: true) {

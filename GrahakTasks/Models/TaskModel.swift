@@ -10,4 +10,7 @@ struct TaskModel: Identifiable, Codable {
     var categoryTitle: String
     var color: String
     var icon: String
+    
+    var isShared : Bool
+    var sharedWithCount : Int
 }

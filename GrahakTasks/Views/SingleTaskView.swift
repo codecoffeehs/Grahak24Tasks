@@ -4,6 +4,8 @@ struct SingleTaskView: View {
     let task: TaskModel
     @State private var isEditing = false
     @State private var newTaskTitle = ""
+    @State private var showCollaboratorSheet = false
+    @State private var searchText = ""
     
     private var categoryColor: Color { Color(hex: task.color) }
 
@@ -86,6 +88,63 @@ struct SingleTaskView: View {
                     .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
 
+                // MARK: - Collaborators Section
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Collaborators")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 14)
+                        .padding(.bottom, 8)
+
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "person.2")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 20)
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                if task.isShared {
+                                    let count = task.sharedWithCount
+                                    let label = count == 1 ? "collaborator" : "collaborators"
+                                    Text("Shared with \(count) \(label)")
+                                        .font(.callout.weight(.semibold))
+                                        .foregroundStyle(.primary)
+                                } else {
+                                    Text("Not shared")
+                                        .font(.callout.weight(.semibold))
+                                        .foregroundStyle(.secondary)
+                                }
+
+                                if !task.isShared {
+                                    Text("Share this task to collaborate with others.")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+
+                        // Button to open half-height sheet
+                        HStack {
+                            Spacer()
+                            Button {
+                                showCollaboratorSheet = true
+                            } label: {
+                                Label("Add Collaborator", systemImage: "plus.circle.fill")
+                                    .font(.callout.weight(.semibold))
+                                    .foregroundStyle(.blue)
+                            }
+                            .padding(.horizontal, 14)
+                            .padding(.bottom, 12)
+                        }
+                    }
+                    .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+
                 Spacer(minLength: 10)
             }
             .padding(16)
@@ -116,7 +175,28 @@ struct SingleTaskView: View {
         .navigationTitle(isEditing ? "Editing" : "Task")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(isEditing)
-        
+        // Sheet with dummy content and a search bar, half-height
+        .sheet(isPresented: $showCollaboratorSheet) {
+            NavigationStack {
+                List {
+                    Section("Suggestions") {
+                        ForEach(0..<10, id: \.self) { idx in
+                            HStack {
+                                Image(systemName: "person.crop.circle")
+                                    .foregroundStyle(.secondary)
+                                Text("Dummy User \(idx + 1)")
+                            }
+                        }
+                    }
+                }
+                .listStyle(.insetGrouped)
+                .navigationTitle("Add Collaborator")
+                .navigationBarTitleDisplayMode(.inline)
+            }
+            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search people")
+            .presentationDetents([.medium,.large])
+            .presentationDragIndicator(.visible)
+        }
     }
 
     // MARK: - Simple row (no extra view file)
@@ -140,23 +220,5 @@ struct SingleTaskView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-    }
-}
-
-#Preview {
-    NavigationStack {
-        SingleTaskView(
-            task: TaskModel(
-                id: "1",
-                title: "Pay electricity bill and handle all the monthly expenses",
-                isCompleted: false,
-                due: "2026-01-10T10:30:00.000+00:00",
-                repeatType: .monthly,
-                categoryId: "1",
-                categoryTitle: "Finance",
-                color: "orange",
-                icon: "creditcard"
-            )
-        )
     }
 }

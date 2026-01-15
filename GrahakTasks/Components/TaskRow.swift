@@ -8,7 +8,10 @@ struct TaskRow: View {
     let categoryTitle: String
     let colorHex: String
     let categoryIcon: String
-
+    
+    let isShared: Bool
+    let sharedWithCount : Int
+    
     private var categoryColor: Color { Color(hex: colorHex) }
 
     private var repeatColor: Color {
@@ -45,6 +48,10 @@ struct TaskRow: View {
                         dueChip
                         repeatChip
                         categoryChip
+                        if sharedWithCount > 0 {
+                            sharedChip
+                            sharedCountChip
+                        }
                     }
 
                     // Wrapped fallback
@@ -55,6 +62,10 @@ struct TaskRow: View {
                         }
                         HStack(spacing: 8) {
                             categoryChip
+                            if sharedWithCount > 0 {
+                                sharedChip
+                                sharedCountChip
+                            }
                         }
                     }
                 }
@@ -124,6 +135,49 @@ struct TaskRow: View {
             Image(systemName: categoryIcon)
                 .font(.system(size: 11, weight: .semibold))
             Text(categoryTitle)
+                .font(.system(size: 12, weight: .semibold))
+                .lineLimit(1)
+        }
+        .foregroundStyle(categoryColor)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(
+            Capsule()
+                .fill(chipBackground(for: categoryColor))
+        )
+        .overlay(
+            Capsule()
+                .stroke(chipStroke(for: categoryColor), lineWidth: 0.5)
+        )
+        .fixedSize(horizontal: true, vertical: false)
+    }
+
+    // Shared chips (only used when sharedWithCount > 0)
+    private var sharedChip: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "person.2.fill")
+                .font(.system(size: 11, weight: .semibold))
+            Text("Shared")
+                .font(.system(size: 12, weight: .semibold))
+                .lineLimit(1)
+        }
+        .foregroundStyle(categoryColor)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(
+            Capsule()
+                .fill(chipBackground(for: categoryColor))
+        )
+        .overlay(
+            Capsule()
+                .stroke(chipStroke(for: categoryColor), lineWidth: 0.5)
+        )
+        .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private var sharedCountChip: some View {
+        HStack(spacing: 4) {
+            Text("+\(sharedWithCount)")
                 .font(.system(size: 12, weight: .semibold))
                 .lineLimit(1)
         }
