@@ -50,7 +50,8 @@ struct CategoryApi{
 
     // MARK: - DELETE CATEGORY
     static func deleteCategory(categoryId:String,token:String) async throws {
-        guard let url = URL(string: "\(baseURL)/task/catergory/delete/\(categoryId)") else {
+        // If your backend uses DELETE /tasks/taskcategory/{id}
+        guard let url = URL(string: "\(baseURL)/\(categoryId)") else {
             throw ApiError(message: "Invalid URL")
         }
 
@@ -58,7 +59,7 @@ struct CategoryApi{
             url: url,
             token: token
         )
-        request.httpMethod = "DELETE"
+        request.httpMethod = HTTPMethod.delete.rawValue
 
         let (_, response) = try await URLSession.shared.data(for: request)
 

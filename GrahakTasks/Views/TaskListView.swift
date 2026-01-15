@@ -6,7 +6,9 @@ struct TaskListView: View {
     @EnvironmentObject var auth: AuthStore
 
     @State private var openTaskAddSheet = false
-
+    @State private var pendingDeleteTaskID = ""
+    @State private var pendingDeleteTaskTitle = ""
+    @State private var showDeleteAlert = false
     // MARK: - Row Builder
     @ViewBuilder
     private func taskRow(_ task: TaskModel) -> some View {
@@ -25,16 +27,19 @@ struct TaskListView: View {
         }
         .swipeActions(edge: .leading, allowsFullSwipe: true) {
             Button(role: .destructive) {
-                Task {
-                    if let token = auth.token {
-                        await taskStore.deleteTask(id: task.id, token: token)
-                    }
-                }
+                // Stage for confirmation
+                pendingDeleteTaskID = task.id
+                pendingDeleteTaskTitle = task.title
+                showDeleteAlert = true
             } label: {
-                Label("Delete", systemImage: "trash")
+                Image(systemName: "trash")
             }
+            .accessibilityLabel("Delete task")
+            .accessibilityHint("Opens confirmation alert to permanently delete this task")
+            .accessibilityIdentifier("delete_task_button")
         }
-        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+        
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             Button {
                 Task {
                     if let token = auth.token {
@@ -45,13 +50,10 @@ struct TaskListView: View {
                 Image(systemName: "checkmark")
             }
             .tint(.green)
+            .accessibilityLabel("Complete task")
+            .accessibilityHint("Marks this task as completed")
+            .accessibilityIdentifier("complete_task_button")
 
-            Button {
-                // edit later
-            } label: {
-                Image(systemName: "pencil")
-            }
-            .tint(.blue)
         }
     }
 
@@ -178,6 +180,28 @@ struct TaskListView: View {
             if let token = auth.token {
                 await taskStore.fetchRecentTasks(token: token)
             }
+        }
+        .alert("Delete Task?", isPresented: $showDeleteAlert) {
+            Button("Cancel", role: .cancel) {
+                pendingDeleteTaskID = ""
+                pendingDeleteTaskTitle = ""
+            }
+
+            Button("Delete", role: .destructive) {
+                let taskId = pendingDeleteTaskID
+                pendingDeleteTaskID = ""
+                pendingDeleteTaskTitle = ""
+                showDeleteAlert = false
+
+                Task {
+                    if let token = auth.token {
+                        await taskStore.deleteTask(id: taskId, token: token)
+                        await taskStore.fetchRecentTasks(token: token)
+                    }
+                }
+            }
+        } message: {
+            Text("Are you sure you want to delete “\(pendingDeleteTaskTitle)”? This action cannot be undone.")
         }
         .alert("Error", isPresented: $taskStore.showErrorAlert) {
             Button("OK", role: .cancel) {}

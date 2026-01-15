@@ -16,9 +16,9 @@ struct HomeView: View {
             Tab("Profile",systemImage: "person.fill"){
                 ProfileView()
             }
-            Tab(role: .search){
-                SearchView()
-            }
+//            Tab(role: .search){
+//                SearchView()
+//            }
         }
         .task {
             await NotificationManager.shared.requestPermission()
