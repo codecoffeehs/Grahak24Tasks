@@ -7,7 +7,8 @@ struct AddCategoryView: View {
     @Environment(\.dismiss) var dismiss
 
     // MARK: - State
-    @State private var title: String = ""
+    // Default title set to "Others"
+    @State private var title: String = "Others"
     @State private var selectedColor: CategoryColorOption = categoryColors[1] // default blue
     @State private var selectedIcon: String = "folder"
 
@@ -29,8 +30,10 @@ struct AddCategoryView: View {
         title.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    // Disallow empty and the literal "none" (case-insensitive)
     private var isTitleValid: Bool {
-        !trimmedTitle.isEmpty
+        guard !trimmedTitle.isEmpty else { return false }
+        return trimmedTitle.lowercased() != "none"
     }
 
     var body: some View {
@@ -41,6 +44,12 @@ struct AddCategoryView: View {
                 Section("Title") {
                     TextField("Category name", text: $title)
                         .textInputAutocapitalization(.sentences)
+
+                    if trimmedTitle.lowercased() == "none" {
+                        Text("The name “None” is not allowed.")
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
                 }
 
                 // MARK: - Color (Minimal Apple-like)
@@ -146,7 +155,7 @@ struct AddCategoryView: View {
                             if let token = auth.token {
                                 await categoryStore.createCategory(
                                     title: trimmedTitle,
-                                    color: selectedColor.hex,   // ✅ send HEX to backend
+                                    color: selectedColor.hex,   // send HEX to backend
                                     icon: selectedIcon,
                                     token: token
                                 )

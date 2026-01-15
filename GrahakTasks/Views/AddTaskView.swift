@@ -20,6 +20,19 @@ struct AddTaskView: View {
         }
     }
 
+    // Pick the best default category: "Others" if available, otherwise first category
+    private func selectDefaultCategoryIfNeeded() {
+        guard selectedCategoryId.isEmpty else { return }
+
+        if let others = categoryStore.categories.first(where: {
+            $0.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "others"
+        }) {
+            selectedCategoryId = others.id
+        } else if let first = categoryStore.categories.first {
+            selectedCategoryId = first.id
+        }
+    }
+
     var body: some View {
         NavigationStack {
             Form {
@@ -32,14 +45,9 @@ struct AddTaskView: View {
                 // MARK: - Category
                 Section {
                     Picker("Category", selection: $selectedCategoryId) {
-
-                        // Optional "None" option
-                        Text("None")
-                            .tag("")
-
                         ForEach(categoryStore.categories, id: \.id) { category in
                             Text(category.title)
-                                .tag(category.id)  // ✅ This is the important part
+                                .tag(category.id)
                         }
                     }
                 }
@@ -96,7 +104,7 @@ struct AddTaskView: View {
                             }
                         }
                     }
-                    .disabled(title.isEmpty || taskStore.isLoading)
+                    .disabled(title.isEmpty || selectedCategoryId.isEmpty || taskStore.isLoading)
                 }
 
                 // Cancel
@@ -110,10 +118,15 @@ struct AddTaskView: View {
         .onAppear {
             checkNotificationPermission()
             Task {
-                    if categoryStore.categories.isEmpty, let token = auth.token {
-                        await categoryStore.fetchCategories(token: token)
-                    }
+                if categoryStore.categories.isEmpty, let token = auth.token {
+                    await categoryStore.fetchCategories(token: token)
                 }
+                // After categories are available, pick default
+                await MainActor.run {
+                    selectDefaultCategoryIfNeeded()
+                }
+            }
         }
+        
     }
 }

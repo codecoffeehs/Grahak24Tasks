@@ -5,6 +5,7 @@ struct SignupView: View {
     @State private var email = ""
     @State private var password = ""
     @State private var showPassword = false
+    @State private var passwordTooLongAlert = false
 
     @FocusState private var focusedField: Field?
     @EnvironmentObject var auth: AuthStore
@@ -26,8 +27,22 @@ struct SignupView: View {
         fullName.trimmingCharacters(in: .whitespacesAndNewlines).count >= 2
     }
 
+    // Password validation
+    private var isPasswordMinValid: Bool {
+        password.count >= 8
+    }
+
+    private var isPasswordMaxValid: Bool {
+        password.count <= 12
+    }
+
     private var canSubmit: Bool {
-        isNameValid && !email.isEmpty && !password.isEmpty && isEmailValid && !auth.isLoading
+        isNameValid
+        && !email.isEmpty
+        && !password.isEmpty
+        && isEmailValid
+        && isPasswordMinValid
+        && !auth.isLoading
     }
 
     var body: some View {
@@ -106,9 +121,13 @@ struct SignupView: View {
                         .submitLabel(.go)
                         .onSubmit {
                             if canSubmit {
-                                Task { await performSignup() }
+                                Task { await performSignupWithLengthCheck() }
                             } else {
                                 warningImpact()
+                                // If user attempts submit with too-long password, show alert
+                                if !isPasswordMaxValid {
+                                    passwordTooLongAlert = true
+                                }
                             }
                         }
                         .disabled(auth.isLoading)
@@ -126,6 +145,14 @@ struct SignupView: View {
 
                     Divider()
                         .background(underlineColor(valid: !password.isEmpty || password.isEmpty))
+
+                    // Helper text: show only when user typed something but it's under 8 chars
+                    if !password.isEmpty && !isPasswordMinValid {
+                        Text("Password must be at least 8 characters.")
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                            .transition(.opacity)
+                    }
                 }
             }
 
@@ -135,7 +162,7 @@ struct SignupView: View {
                 isLoading: auth.isLoading,
                 isDisabled: !canSubmit
             ) {
-                await performSignup()
+                await performSignupWithLengthCheck()
             }
 
             // Navigation
@@ -201,6 +228,12 @@ struct SignupView: View {
         } message: {
             Text(auth.errorMessage ?? "Couldn't sign up")
         }
+        // Alert specifically for password > 12 on submit
+        .alert("Password too long", isPresented: $passwordTooLongAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Please use a password of 12 characters or fewer.")
+        }
         .onAppear {
             // Focus full name initially
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
@@ -220,6 +253,16 @@ struct SignupView: View {
     private func underlineColor(valid: Bool) -> Color {
         if auth.isLoading { return Color.gray.opacity(0.3) }
         return valid ? Color.secondary.opacity(0.25) : Color.red.opacity(0.6)
+    }
+
+    private func performSignupWithLengthCheck() async {
+        // If too long, show alert and stop
+        if !isPasswordMaxValid {
+            passwordTooLongAlert = true
+            warningImpact()
+            return
+        }
+        await performSignup()
     }
 
     private func performSignup() async {

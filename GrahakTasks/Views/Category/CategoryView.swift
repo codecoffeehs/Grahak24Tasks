@@ -49,6 +49,8 @@ struct CategoryView: View {
                     // We have categories, and either not searching or we have matches
                     List {
                         ForEach(filteredCategories, id: \.id) { category in
+                            let isOthers = category.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "others"
+
                             NavigationLink {
                                 CategoryTasksView(categoryId: category.id, categoryTitle: category.title)
                             } label: {
@@ -59,15 +61,14 @@ struct CategoryView: View {
                                     totalTasks: category.tasksCount
                                 )
                             }
-                            .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                                Button(role: .destructive) {
+                            // Do not allow swipe actions for "Others"
+                            .modifier(ConditionalSwipeActionsModifier(
+                                isEnabled: !isOthers,
+                                onDelete: {
                                     selectedCategoryForDeletion = category
                                     showDeleteAlert = true
-                                } label: {
-                                    Image(systemName: "trash")
                                 }
-                                .accessibilityLabel("Delete category")
-                            }
+                            ))
                         }
                     }
                     .listStyle(.insetGrouped)
@@ -144,6 +145,27 @@ private struct ConditionalSearchModifier: ViewModifier {
     func body(content: Content) -> some View {
         if isEnabled {
             content.searchable(text: $text, prompt: prompt)
+        } else {
+            content
+        }
+    }
+}
+
+// Small helper to conditionally add swipe actions
+private struct ConditionalSwipeActionsModifier: ViewModifier {
+    let isEnabled: Bool
+    var onDelete: () -> Void
+
+    func body(content: Content) -> some View {
+        if isEnabled {
+            content.swipeActions(edge: .leading, allowsFullSwipe: true) {
+                Button(role: .destructive) {
+                    onDelete()
+                } label: {
+                    Image(systemName: "trash")
+                }
+                .accessibilityLabel("Delete category")
+            }
         } else {
             content
         }
