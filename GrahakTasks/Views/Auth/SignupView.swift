@@ -107,6 +107,8 @@ struct SignupView: View {
                     Text("Password")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled(true)
 
                     HStack(spacing: 8) {
                         Group {

@@ -9,10 +9,12 @@ import SwiftUI
 
 struct SharedView: View {
     var body: some View {
-        Text("Shared View")
+        NavigationStack{
+            Text("This is shared view")
+        }
+        .navigationTitle("Shared")
+        
     }
 }
 
-#Preview {
-    SharedView()
-}
+

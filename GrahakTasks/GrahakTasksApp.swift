@@ -12,12 +12,15 @@ struct GrahakTasksApp: App {
     @StateObject private var authStore = AuthStore()
     @StateObject private var taskStore = TaskStore()
     @StateObject private var categoryStore = CategoryStore()
+    @StateObject private var collabStore = CollabStore()
+    
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environmentObject(authStore)
                 .environmentObject(taskStore)
                 .environmentObject(categoryStore)
+                .environmentObject(collabStore)
         }
     }
 }

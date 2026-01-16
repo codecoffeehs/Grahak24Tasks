@@ -156,23 +156,23 @@ struct TaskListView: View {
                     }
                 }
 
-                ToolbarItem(placement: .topBarLeading) {
-                    Menu {
-                        Button {
-                            // later
-                        } label: {
-                            Label("Mark All As Done", systemImage: "checkmark.circle")
-                        }
-
-                        Button(role: .destructive) {
-                            // later
-                        } label: {
-                            Label("Delete All", systemImage: "trash")
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis")
-                    }
-                }
+//                ToolbarItem(placement: .topBarLeading) {
+//                    Menu {
+//                        Button {
+//                            // later
+//                        } label: {
+//                            Label("Mark All As Done", systemImage: "checkmark.circle")
+//                        }
+//
+//                        Button(role: .destructive) {
+//                            // later
+//                        } label: {
+//                            Label("Delete All", systemImage: "trash")
+//                        }
+//                    } label: {
+//                        Image(systemName: "ellipsis")
+//                    }
+//                }
             }
             .sheet(isPresented: $openTaskAddSheet) {
                 AddTaskView()

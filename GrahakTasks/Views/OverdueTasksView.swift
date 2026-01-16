@@ -20,7 +20,7 @@ struct OverdueTasksView: View {
                     ProgressView("Loading overdue tasks…")
                         .progressViewStyle(.circular)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if taskStore.allTodayTasks.isEmpty {
+                } else if taskStore.allOverdueTasks.isEmpty {
                     ContentUnavailableView(
                         "Yayy!! You have'nt missed anything",
                         systemImage: "checkmark.circle",
@@ -28,7 +28,7 @@ struct OverdueTasksView: View {
                     )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    List(taskStore.allTodayTasks) { task in
+                    List(taskStore.allOverdueTasks) { task in
                         NavigationLink {
                             SingleTaskView(task: task)
                         } label: {
@@ -48,7 +48,7 @@ struct OverdueTasksView: View {
                     .listStyle(.insetGrouped)
                 }
             }
-            .navigationTitle("Overdue (\(taskStore.allTodayTasks.count))")
+            .navigationTitle("Overdue (\(taskStore.allOverdueTasks.count))")
         }
         .task{
             if let token = authStore.token {

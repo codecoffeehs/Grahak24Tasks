@@ -20,7 +20,7 @@ struct UpcomingTasksView: View {
                     ProgressView("Loading upcoming tasks…")
                         .progressViewStyle(.circular)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if taskStore.allTodayTasks.isEmpty {
+                } else if taskStore.allUpcomingTasks.isEmpty {
                     ContentUnavailableView(
                         "No task coming your way",
                         systemImage: "checkmark.circle",
@@ -28,7 +28,7 @@ struct UpcomingTasksView: View {
                     )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    List(taskStore.allTodayTasks) { task in
+                    List(taskStore.allUpcomingTasks) { task in
                         NavigationLink {
                             SingleTaskView(task: task)
                         } label: {
@@ -48,7 +48,7 @@ struct UpcomingTasksView: View {
                     .listStyle(.insetGrouped)
                 }
             }
-            .navigationTitle("Upcoming (\(taskStore.allTodayTasks.count))")
+            .navigationTitle("Upcoming (\(taskStore.allUpcomingTasks.count))")
         }
         .task{
             // Fetch when the view appears and whenever the token changes

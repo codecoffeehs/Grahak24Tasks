@@ -7,6 +7,12 @@ struct SingleTaskView: View {
     @State private var showCollaboratorSheet = false
     @State private var searchText = ""
     
+    @EnvironmentObject private var auth: AuthStore
+    @EnvironmentObject private var collabStore: CollabStore
+    
+    @State private var lastSearchFiredAt: Date = .distantPast
+    private let searchDebounceInterval: TimeInterval = 0.35
+    
     private var categoryColor: Color { Color(hex: task.color) }
 
     private var repeatColor: Color {
@@ -175,25 +181,97 @@ struct SingleTaskView: View {
         .navigationTitle(isEditing ? "Editing" : "Task")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(isEditing)
-        // Sheet with dummy content and a search bar, half-height
+        // Sheet wired to CollabStore with search
         .sheet(isPresented: $showCollaboratorSheet) {
             NavigationStack {
-                List {
-                    Section("Suggestions") {
-                        ForEach(0..<10, id: \.self) { idx in
-                            HStack {
-                                Image(systemName: "person.crop.circle")
-                                    .foregroundStyle(.secondary)
-                                Text("Dummy User \(idx + 1)")
+                Group {
+                    if collabStore.isLoading {
+                        ProgressView()
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else if searchText.count >= 3 && collabStore.taskUsers.isEmpty {
+                        ContentUnavailableView("No results", systemImage: "person.crop.circle.badge.questionmark", description: Text("Try a different name or email"))
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else {
+                        List {
+                            if searchText.count < 3 {
+                                Section {
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        Text("Start typing to search")
+                                            .font(.callout.weight(.semibold))
+                                        Text("Enter at least 3 characters to search for collaborators.")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    .padding(.vertical, 6)
+                                }
+                            }
+                            
+                            if !collabStore.taskUsers.isEmpty {
+                                Section("Results") {
+                                    ForEach(collabStore.taskUsers) { user in
+                                        HStack(spacing: 12) {
+                                            avatarView(for: user.fullName)
+                                                .frame(width: 36, height: 36)
+                                            
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                Text(user.fullName)
+                                                    .font(.callout.weight(.semibold))
+                                                Text(user.email)
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+                                            }
+                                            
+                                            Spacer()
+                                            
+                                            Button {
+                                                // TODO: Hook up invite API when available
+                                                // e.g., await CollabApi.inviteUserToTask(taskId: task.id, userId: user.id, token: token)
+                                            } label: {
+                                                Text("Invite")
+                                                    .font(.callout.weight(.semibold))
+                                            }
+                                            .buttonStyle(.borderedProminent)
+                                            .tint(.blue)
+                                        }
+                                        .padding(.vertical, 4)
+                                    }
+                                }
                             }
                         }
+                        .listStyle(.insetGrouped)
                     }
                 }
-                .listStyle(.insetGrouped)
                 .navigationTitle("Add Collaborator")
                 .navigationBarTitleDisplayMode(.inline)
             }
-            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search people")
+            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search people").textInputAutocapitalization(.never).autocorrectionDisabled(true)
+            .onChange(of: searchText) { _, newValue in
+                // Debounce and require at least 3 characters
+                guard newValue.trimmingCharacters(in: .whitespacesAndNewlines).count >= 3 else {
+                    // Clear old results when search is too short
+                    collabStore.taskUsers = []
+                    return
+                }
+                
+                // Simple debounce using timestamp
+                let now = Date()
+                lastSearchFiredAt = now
+                let token = auth.token
+                
+                Task { [lastSearchFiredAt] in
+                    try? await Task.sleep(nanoseconds: UInt64(searchDebounceInterval * 1_000_000_000))
+                    // Only fire if no newer change occurred
+                    guard now == lastSearchFiredAt else { return }
+                    if let token {
+                        await collabStore.searchTaskUsers(token: token, search: newValue)
+                    }
+                }
+            }
+            .alert("Error", isPresented: $collabStore.showErrorAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(collabStore.errorMessage ?? "Something went wrong")
+            }
             .presentationDetents([.medium,.large])
             .presentationDragIndicator(.visible)
         }
@@ -221,4 +299,41 @@ struct SingleTaskView: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
     }
+    
+    // MARK: - Avatar from initials
+    @ViewBuilder
+    private func avatarView(for name: String) -> some View {
+        let initials = initialsFromName(name)
+        let bg = colorFromString(name)
+        ZStack {
+            Circle()
+                .fill(bg.opacity(0.2))
+            Text(initials)
+                .font(.caption.weight(.bold))
+                .foregroundStyle(bg)
+        }
+        .accessibilityHidden(true)
+    }
+    
+    private func initialsFromName(_ name: String) -> String {
+        let parts = name.split(separator: " ").map { String($0) }
+        if parts.count >= 2 {
+            return String(parts[0].prefix(1) + parts[1].prefix(1)).uppercased()
+        } else if let first = parts.first {
+            return String(first.prefix(2)).uppercased()
+        } else {
+            return "?"
+        }
+    }
+    
+    private func colorFromString(_ string: String) -> Color {
+        var hasher = Hasher()
+        hasher.combine(string)
+        let hash = hasher.finalize()
+        let r = Double((hash & 0xFF0000) >> 16) / 255.0
+        let g = Double((hash & 0x00FF00) >> 8) / 255.0
+        let b = Double(hash & 0x0000FF) / 255.0
+        return Color(red: abs(r), green: abs(g), blue: abs(b))
+    }
 }
+
