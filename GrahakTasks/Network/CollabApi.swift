@@ -3,39 +3,14 @@ import Foundation
 struct CollabApi{
     
     static let baseURL = "https://api.grahak24.com/userinsights/taskuser"
+    static let baseURLTwo = "https://api.grahak24.com/tasks/taskcollab"
     
-//    static func fetchSharedTasks(token : String) async throws {
-//        guard let url = URL(string: "\(baseURL)/shared") else {
-//            throw ApiError(message: "Invalid URL")
-//        }
-//
-//        var request = NetworkHelpers.authorizedRequest(url: url, token: token)
-//        request.httpMethod = "GET"
-//
-//        let (data, response) = try await URLSession.shared.data(for: request)
-//
-//        guard let http = response as? HTTPURLResponse else {
-//            throw ApiError(message: "Invalid server response")
-//        }
-//
-//        if (200...299).contains(http.statusCode) {
-//            return try JSONDecoder().decode(RecentTasksResponse.self, from: data)
-//        }
-//
-//        if let apiError = try? JSONDecoder().decode(ApiErrorResponse.self, from: data) {
-//            throw ApiError(message: apiError.message)
-//        }
-//
-//        let raw = String(data: data, encoding: .utf8) ?? "Failed to fetch recent tasks"
-//        throw ApiError(message: raw)
-//    }
     static func searchTaskUsers(token: String, search: String) async throws -> [TaskUserModel] {
 
         guard var components = URLComponents(string: baseURL) else {
             throw ApiError(message: "Invalid URL")
         }
 
-        // Add query param here
         components.queryItems = [
             URLQueryItem(name: "searchTerm", value: search)
         ]
@@ -65,5 +40,86 @@ struct CollabApi{
         throw ApiError(message: raw)
     }
 
+    static func fetchSharedTasks(token:String) async throws -> [SharedTaskModel]{
+        guard let url = URL(string: "\(baseURLTwo)/shared") else {
+            throw ApiError(message: "Invalid URL")
+        }
+
+        var request = NetworkHelpers.authorizedRequest(url: url, token: token)
+        request.httpMethod = HTTPMethod.get.rawValue
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let http = response as? HTTPURLResponse else {
+            throw ApiError(message: "Invalid server response")
+        }
+
+        if (200...299).contains(http.statusCode) {
+            return try JSONDecoder().decode([SharedTaskModel].self, from: data)
+        }
+
+        if let backendError = try? JSONDecoder().decode(ApiErrorResponse.self, from: data) {
+            throw ApiError(message: backendError.message)
+        }
+
+        let rawMessage = String(data: data, encoding: .utf8) ?? "Failed to fetch shared tasks"
+        throw ApiError(message: rawMessage)
+    }
     
+    static func fetchSharedTasksRequest(token:String) async throws -> [SharedTaskModel]{
+        guard let url = URL(string: "\(baseURL)/requests") else {
+            throw ApiError(message: "Invalid URL")
+        }
+
+        var request = NetworkHelpers.authorizedRequest(url: url, token: token)
+        request.httpMethod = HTTPMethod.get.rawValue
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let http = response as? HTTPURLResponse else {
+            throw ApiError(message: "Invalid server response")
+        }
+
+        if (200...299).contains(http.statusCode) {
+            return try JSONDecoder().decode([SharedTaskModel].self, from: data)
+        }
+
+        if let backendError = try? JSONDecoder().decode(ApiErrorResponse.self, from: data) {
+            throw ApiError(message: backendError.message)
+        }
+
+        let rawMessage = String(data: data, encoding: .utf8) ?? "Failed to fetch shared tasks"
+        throw ApiError(message: rawMessage)
+    }
+    
+    // Send invitedUserId in JSON body; consider any 2xx as success. No message parsing.
+    static func sendInviteForTaskCollab(token: String, taskId: String, invitedUserId: String) async throws {
+        guard let url = URL(string: "\(baseURLTwo)/invite/\(taskId)") else {
+            throw ApiError(message: "Invalid URL")
+        }
+
+        var request = NetworkHelpers.authorizedRequest(url: url, token: token)
+        request.httpMethod = HTTPMethod.post.rawValue
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: String] = ["invitedUserId": invitedUserId]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body, options: [])
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let http = response as? HTTPURLResponse else {
+            throw ApiError(message: "Invalid server response")
+        }
+
+        if (200...299).contains(http.statusCode) {
+            return
+        }
+
+        if let backendError = try? JSONDecoder().decode(ApiErrorResponse.self, from: data) {
+            throw ApiError(message: backendError.message)
+        }
+
+        let rawMessage = String(data: data, encoding: .utf8) ?? "Failed to send invite"
+        throw ApiError(message: rawMessage)
+    }
 }

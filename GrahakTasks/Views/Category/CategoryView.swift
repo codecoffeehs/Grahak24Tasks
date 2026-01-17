@@ -7,7 +7,8 @@ struct CategoryView: View {
     @State private var categorySearch = ""
     @EnvironmentObject var categoryStore: CategoryStore
     @EnvironmentObject var authStore: AuthStore
-
+    @EnvironmentObject var taskStore : TaskStore
+    
     private var hasCategories: Bool {
         !categoryStore.categories.isEmpty
     }
@@ -69,6 +70,15 @@ struct CategoryView: View {
                                     showDeleteAlert = true
                                 }
                             ))
+                        }
+                    }
+                    .swipeActions(edge: .leading, allowsFullSwipe: true){
+                        Button{
+//                            if let token = authStore.token{
+//                                await taskStore.deleteTask(id: , token: <#T##String#>)
+//                            }
+                        } label:{
+                            Image(systemName:"trash")
                         }
                     }
                     .listStyle(.insetGrouped)
@@ -144,7 +154,7 @@ private struct ConditionalSearchModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         if isEnabled {
-            content.searchable(text: $text, prompt: prompt)
+            content.searchable(text: $text, prompt: prompt).textInputAutocapitalization(.never).autocorrectionDisabled(true)
         } else {
             content
         }

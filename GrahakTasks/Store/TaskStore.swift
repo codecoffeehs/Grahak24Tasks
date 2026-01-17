@@ -8,11 +8,13 @@ class TaskStore: ObservableObject {
     @Published var todayTasks: [TaskModel] = []
     @Published var upcomingTasks: [TaskModel] = []
     @Published var overdueTasks: [TaskModel] = []
-
+    @Published var noDueTasks : [TaskModel] = []
+    
     @Published var todayCount: Int = 0
     @Published var upcomingCount: Int = 0
     @Published var overdueCount: Int = 0
-
+    @Published var noDueCount: Int = 0
+    
     // MARK: - Full Tasks (optional screen)
     @Published var tasks: [TaskModel] = []
 
@@ -38,10 +40,12 @@ class TaskStore: ObservableObject {
             todayTasks = response.today.tasks
             upcomingTasks = response.upcoming.tasks
             overdueTasks = response.overdue.tasks
+            noDueTasks = response.noDue.tasks
 
             todayCount = response.today.count
             upcomingCount = response.upcoming.count
             overdueCount = response.overdue.count
+            noDueCount = response.noDue.count
 
         } catch {
             errorMessage = error.localizedDescription
@@ -69,20 +73,22 @@ class TaskStore: ObservableObject {
     // MARK: - Add Task
     func addTask(
         title: String,
-        due: Date,
-        repeatType: RepeatType,
+        due: Date?,                 // optional
+        repeatType: RepeatType?,    // optional
         categoryId: String,
         token: String
     ) async {
         isLoading = true
         errorMessage = nil
 
-        let minimumDelay: TimeInterval = 60
-        guard due.timeIntervalSinceNow > minimumDelay else {
-            isLoading = false
-            errorMessage = "Due time must be at least 1 minute from now."
-            showErrorAlert = true
-            return
+        if let due {
+            let minimumDelay: TimeInterval = 60
+            guard due.timeIntervalSinceNow > minimumDelay else {
+                isLoading = false
+                errorMessage = "Due time must be at least 1 minute from now."
+                showErrorAlert = true
+                return
+            }
         }
 
         do {
@@ -94,12 +100,14 @@ class TaskStore: ObservableObject {
                 token: token
             )
 
-            // 🔔 schedule notification
-            NotificationManager.shared.scheduleTaskNotification(
-                id: newTask.id,
-                title: newTask.title,
-                dueDate: due
-            )
+            // 🔔 schedule notification only if due exists
+            if let due {
+                NotificationManager.shared.scheduleTaskNotification(
+                    id: newTask.id,
+                    title: newTask.title,
+                    dueDate: due
+                )
+            }
 
             // ✅ refresh home sections from backend (no conflicts / no bugs)
             await fetchRecentTasks(token: token)
@@ -213,4 +221,3 @@ class TaskStore: ObservableObject {
             isLoading = false
     }
 }
-

@@ -22,9 +22,7 @@ struct TaskListView: View {
                 repeatType: task.repeatType,
                 categoryTitle: task.categoryTitle,
                 colorHex: task.color,
-                categoryIcon: task.icon,
-                isShared: task.isShared,
-                sharedWithCount: task.sharedWithCount
+                categoryIcon: task.icon
             )
         }
         .swipeActions(edge: .leading, allowsFullSwipe: true) {
@@ -67,7 +65,7 @@ struct TaskListView: View {
                         .progressViewStyle(.circular)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                } else if taskStore.todayCount == 0 && taskStore.upcomingCount == 0 && taskStore.overdueCount == 0 {
+                } else if taskStore.todayCount == 0 && taskStore.upcomingCount == 0 && taskStore.overdueCount == 0 && taskStore.noDueCount == 0 {
                         ContentUnavailableView(
                             "Nothing Coming Up Your Way!",
                             systemImage: "sun.max",
@@ -138,6 +136,28 @@ struct TaskListView: View {
                                 }
                             ) {
                                 ForEach(taskStore.upcomingTasks.prefix(4), id: \.id) { task in
+                                    taskRow(task)
+                                }
+                            }
+                        }
+                        
+                        // MARK: - No Due
+                        if taskStore.noDueCount > 0 {
+                            Section(
+                                header: HStack {
+                                    Text("No Due (\(taskStore.noDueCount))")
+                                        .font(.headline)
+
+                                    Spacer()
+
+                                    NavigationLink("See All") {
+                                        OverdueTasksView()
+                                    }
+                                    .font(.subheadline)
+                                    .foregroundColor(.blue)
+                                }
+                            ) {
+                                ForEach(taskStore.noDueTasks.prefix(3), id: \.id) { task in
                                     taskRow(task)
                                 }
                             }

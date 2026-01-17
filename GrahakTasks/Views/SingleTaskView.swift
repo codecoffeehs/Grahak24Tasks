@@ -2,21 +2,38 @@ import SwiftUI
 
 struct SingleTaskView: View {
     let task: TaskModel
+
+    // Editing title
     @State private var isEditing = false
     @State private var newTaskTitle = ""
-    @State private var showCollaboratorSheet = false
+
+    // Share
+    @State private var showShareSheet = false
     @State private var searchText = ""
-    
-    @EnvironmentObject private var auth: AuthStore
-    @EnvironmentObject private var collabStore: CollabStore
-    
+
+    // Debounce
     @State private var lastSearchFiredAt: Date = .distantPast
     private let searchDebounceInterval: TimeInterval = 0.35
-    
-    private var categoryColor: Color { Color(hex: task.color) }
+
+    // Toast
+    @State private var showShareToast = false
+    @State private var shareToastText = "Task Shared"
+
+    // Delete
+    @State private var showDeleteConfirm = false
+    @State private var localErrorMessage: String?
+    @State private var showLocalErrorAlert = false
+
+    @EnvironmentObject private var auth: AuthStore
+    @EnvironmentObject private var collabStore: CollabStore
+    @Environment(\.dismiss) private var dismiss
+
+    private var categoryColor: Color {
+        Color(hex: task.color)
+    }
 
     private var repeatColor: Color {
-        switch task.repeatType {
+        switch task.repeatType ?? .none {
         case .none: return .secondary
         case .daily: return .blue
         case .everyOtherDay: return .purple
@@ -26,268 +43,271 @@ struct SingleTaskView: View {
     }
 
     private var dueText: String {
-        if let result = DateParser.parseDueDate(from: task.due) {
+        guard let dueString = task.due else {
+            return "None"
+        }
+        if let result = DateParser.parseDueDate(from: dueString) {
             return result.text
         }
-        return task.due
+        return dueString
     }
 
     private var dueColor: Color {
-        if let result = DateParser.parseDueDate(from: task.due) {
+        guard let dueString = task.due else {
+            return .secondary
+        }
+        if let result = DateParser.parseDueDate(from: dueString) {
             return result.isOverdue ? .red : .secondary
         }
         return .secondary
     }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-
-                // MARK: - Header Card
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(alignment: .top, spacing: 12) {
-                        if isEditing{
-                            TextField("",text:$newTaskTitle)
-                        }else{
-                            Text(task.title)
-                                .font(.title2.weight(.semibold))
-                                .foregroundStyle(task.isCompleted ? .secondary : .primary)
-                                .strikethrough(task.isCompleted, color: .secondary.opacity(0.6))
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        Spacer()
-                    }
-
-                    if task.isCompleted {
-                        Text("Completed")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.green)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(.green.opacity(0.12), in: Capsule())
-                    }
-                }
-                .padding(16)
-                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-
-                // MARK: - Details Section
-                VStack(alignment: .leading, spacing: 0) {
-
-                    Text("Details")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 14)
-                        .padding(.bottom, 8)
-
-                    VStack(spacing: 0) {
-                        detailRow(icon: "calendar", title: "Due", value: dueText, valueColor: dueColor)
-
-                        Divider().padding(.leading, 44)
-
-                        detailRow(icon: "arrow.clockwise", title: "Repeat", value: task.repeatType.shortTitle, valueColor: repeatColor)
-
-                        Divider().padding(.leading, 44)
-
-                        detailRow(icon: task.icon, title: "Category", value: task.categoryTitle, valueColor: categoryColor)
-                    }
-                    .padding(.vertical, 6)
-                    .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                }
-
-                // MARK: - Collaborators Section
-                VStack(alignment: .leading, spacing: 0) {
-                    Text("Collaborators")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 14)
-                        .padding(.bottom, 8)
-
-                    VStack(alignment: .leading, spacing: 0) {
-                        HStack(spacing: 12) {
-                            Image(systemName: "person.2")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(.secondary)
-                                .frame(width: 20)
-
-                            VStack(alignment: .leading, spacing: 4) {
-                                if task.isShared {
-                                    let count = task.sharedWithCount
-                                    let label = count == 1 ? "collaborator" : "collaborators"
-                                    Text("Shared with \(count) \(label)")
-                                        .font(.callout.weight(.semibold))
-                                        .foregroundStyle(.primary)
-                                } else {
-                                    Text("Not shared")
-                                        .font(.callout.weight(.semibold))
-                                        .foregroundStyle(.secondary)
-                                }
-
-                                if !task.isShared {
-                                    Text("Share this task to collaborate with others.")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-
-                            Spacer(minLength: 0)
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
-
-                        // Button to open half-height sheet
-                        HStack {
-                            Spacer()
-                            Button {
-                                showCollaboratorSheet = true
-                            } label: {
-                                Label("Add Collaborator", systemImage: "plus.circle.fill")
-                                    .font(.callout.weight(.semibold))
-                                    .foregroundStyle(.blue)
-                            }
-                            .padding(.horizontal, 14)
-                            .padding(.bottom, 12)
-                        }
-                    }
-                    .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                }
-
-                Spacer(minLength: 10)
-            }
-            .padding(16)
+        List {
+            headerSection()
+            detailsSection()
+            actionsSection()
         }
-        .toolbar{
-            if isEditing{
-                ToolbarItem(placement: .topBarLeading){
-                    Button("Cancel"){
-                        isEditing = false
-                    }
-                    .foregroundStyle(.red)
-                }
-            }
-            if !isEditing{
-                ToolbarItem(placement: .topBarTrailing){
-                    Button{
-                        isEditing = true
-                        newTaskTitle = task.title
-                    } label:{
-                        Image(systemName: "pencil")              }
-                }
-            }
-        }
-        .onDisappear{
-            isEditing = false
-        }
-        .background(Color(.systemGroupedBackground))
+        .listStyle(.insetGrouped)
         .navigationTitle(isEditing ? "Editing" : "Task")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(isEditing)
-        // Sheet wired to CollabStore with search
-        .sheet(isPresented: $showCollaboratorSheet) {
-            NavigationStack {
-                Group {
-                    if collabStore.isLoading {
-                        ProgressView()
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    } else if searchText.count >= 3 && collabStore.taskUsers.isEmpty {
-                        ContentUnavailableView("No results", systemImage: "person.crop.circle.badge.questionmark", description: Text("Try a different name or email"))
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    } else {
-                        List {
-                            if searchText.count < 3 {
-                                Section {
-                                    VStack(alignment: .leading, spacing: 6) {
-                                        Text("Start typing to search")
-                                            .font(.callout.weight(.semibold))
-                                        Text("Enter at least 3 characters to search for collaborators.")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                    .padding(.vertical, 6)
-                                }
-                            }
-                            
-                            if !collabStore.taskUsers.isEmpty {
-                                Section("Results") {
-                                    ForEach(collabStore.taskUsers) { user in
-                                        HStack(spacing: 12) {
-                                            avatarView(for: user.fullName)
-                                                .frame(width: 36, height: 36)
-                                            
-                                            VStack(alignment: .leading, spacing: 2) {
-                                                Text(user.fullName)
-                                                    .font(.callout.weight(.semibold))
-                                                Text(user.email)
-                                                    .font(.caption)
-                                                    .foregroundStyle(.secondary)
-                                            }
-                                            
-                                            Spacer()
-                                            
-                                            Button {
-                                                // TODO: Hook up invite API when available
-                                                // e.g., await CollabApi.inviteUserToTask(taskId: task.id, userId: user.id, token: token)
-                                            } label: {
-                                                Text("Invite")
-                                                    .font(.callout.weight(.semibold))
-                                            }
-                                            .buttonStyle(.borderedProminent)
-                                            .tint(.blue)
-                                        }
-                                        .padding(.vertical, 4)
-                                    }
-                                }
-                            }
-                        }
-                        .listStyle(.insetGrouped)
+        .toolbar { toolbarContent() }
+        .onDisappear { isEditing = false }
+
+        // Share Sheet
+        .sheet(isPresented: $showShareSheet) {
+            shareSheet()
+        }
+
+        // Delete confirmation
+        .alert("Delete Task?", isPresented: $showDeleteConfirm) {
+            Button("Delete", role: .destructive) {
+                Task {
+                    guard let token = auth.token else {
+                        localErrorMessage = "You must be logged in to delete a task."
+                        showLocalErrorAlert = true
+                        return
                     }
-                }
-                .navigationTitle("Add Collaborator")
-                .navigationBarTitleDisplayMode(.inline)
-            }
-            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search people").textInputAutocapitalization(.never).autocorrectionDisabled(true)
-            .onChange(of: searchText) { _, newValue in
-                // Debounce and require at least 3 characters
-                guard newValue.trimmingCharacters(in: .whitespacesAndNewlines).count >= 3 else {
-                    // Clear old results when search is too short
-                    collabStore.taskUsers = []
-                    return
-                }
-                
-                // Simple debounce using timestamp
-                let now = Date()
-                lastSearchFiredAt = now
-                let token = auth.token
-                
-                Task { [lastSearchFiredAt] in
-                    try? await Task.sleep(nanoseconds: UInt64(searchDebounceInterval * 1_000_000_000))
-                    // Only fire if no newer change occurred
-                    guard now == lastSearchFiredAt else { return }
-                    if let token {
-                        await collabStore.searchTaskUsers(token: token, search: newValue)
+                    do {
+                        try await TaskApi.deleteTask(taskId: task.id, token: token)
+                        dismiss()
+                    } catch {
+                        localErrorMessage = error.localizedDescription
+                        showLocalErrorAlert = true
                     }
                 }
             }
-            .alert("Error", isPresented: $collabStore.showErrorAlert) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text(collabStore.errorMessage ?? "Something went wrong")
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("This action cannot be undone.")
+        }
+
+        // Local error alert
+        .alert("Error", isPresented: $showLocalErrorAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(localErrorMessage ?? "Something went wrong")
+        }
+
+        // Toast overlay
+        .overlay(alignment: .top) {
+            if showShareToast {
+                toastView(text: shareToastText)
             }
-            .presentationDetents([.medium,.large])
-            .presentationDragIndicator(.visible)
         }
     }
 
-    // MARK: - Simple row (no extra view file)
+    // MARK: - Sections
+
+    @ViewBuilder
+    private func headerSection() -> some View {
+        Section {
+            HStack(alignment: .top, spacing: 12) {
+                Circle()
+                    .fill(categoryColor.opacity(0.18))
+                    .frame(width: 46, height: 46)
+                    .overlay(
+                        Image(systemName: task.icon)
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(categoryColor)
+                    )
+
+                VStack(alignment: .leading, spacing: 8) {
+                    if isEditing {
+                        TextField("Task title", text: $newTaskTitle)
+                            .font(.title3.weight(.semibold))
+                    } else {
+                        Text(task.title)
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(task.isCompleted ? .secondary : .primary)
+                            .strikethrough(task.isCompleted, color: .secondary.opacity(0.6))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    HStack(spacing: 8) {
+                        Chip(text: task.categoryTitle, color: categoryColor)
+                        if task.isCompleted {
+                            Chip(text: "Completed", color: .green)
+                        }
+                    }
+                }
+
+                Spacer(minLength: 0)
+            }
+            .padding(.vertical, 2)
+        }
+    }
+
+    @ViewBuilder
+    private func detailsSection() -> some View {
+        Section("Details") {
+            detailRow(icon: "calendar", title: "Due", value: dueText, valueColor: dueColor)
+            detailRow(icon: "arrow.clockwise", title: "Repeat", value: (task.repeatType ?? .none).shortTitle, valueColor: repeatColor)
+            detailRow(icon: task.icon, title: "Category", value: task.categoryTitle, valueColor: categoryColor)
+        }
+    }
+
+    @ViewBuilder
+    private func actionsSection() -> some View {
+        Section("Actions") {
+            Button {
+                showShareSheet = true
+            } label: {
+                Label("Share Task", systemImage: "square.and.arrow.up")
+                    .font(.callout.weight(.semibold))
+            }
+
+            Button(role: .destructive) {
+                showDeleteConfirm = true
+            } label: {
+                Label("Delete Task", systemImage: "trash")
+                    .font(.callout.weight(.semibold))
+            }
+        }
+    }
+
+    // MARK: - Toolbar
+
+    @ToolbarContentBuilder
+    private func toolbarContent() -> some ToolbarContent {
+        if isEditing {
+            ToolbarItem(placement: .topBarLeading) {
+                Button("Cancel") {
+                    isEditing = false
+                }
+                .foregroundStyle(.red)
+            }
+        }
+
+        if !isEditing {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    isEditing = true
+                    newTaskTitle = task.title
+                } label: {
+                    Image(systemName: "pencil")
+                }
+            }
+        }
+    }
+
+    // MARK: - Share Sheet
+
+    @ViewBuilder
+    private func shareSheet() -> some View {
+        NavigationStack {
+            Group {
+                if collabStore.isLoading {
+                    ProgressView()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    List {
+                        if searchText.trimmingCharacters(in: .whitespacesAndNewlines).count < 3 {
+                            Section {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text("Start typing to search")
+                                        .font(.callout.weight(.semibold))
+                                    Text("Enter at least 3 characters to search for people.")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                .padding(.vertical, 6)
+                            }
+                        }
+
+                        if !collabStore.taskUsers.isEmpty {
+                            Section("Results") {
+                                ForEach(collabStore.taskUsers) { user in
+                                    shareResultRow(user: user)
+                                }
+                            }
+                        }
+
+                        if searchText.count >= 3 && collabStore.taskUsers.isEmpty && !collabStore.isLoading {
+                            Section {
+                                ContentUnavailableView(
+                                    "No results",
+                                    systemImage: "person.crop.circle.badge.questionmark",
+                                    description: Text("Try a different name or email")
+                                )
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            }
+                        }
+                    }
+                    .listStyle(.insetGrouped)
+                }
+            }
+            .navigationTitle("Share Task")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search people")
+        .textInputAutocapitalization(.never)
+        .autocorrectionDisabled(true)
+        .onChange(of: searchText) { _, newValue in
+            handleSearchChange(newValue)
+        }
+        .alert("Error", isPresented: $collabStore.showErrorAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(collabStore.errorMessage ?? "Something went wrong")
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+
+    private func handleSearchChange(_ newValue: String) {
+        let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count >= 3 else {
+            collabStore.taskUsers = []
+            return
+        }
+
+        let now = Date()
+        lastSearchFiredAt = now
+        let token = auth.token
+
+        Task { [lastSearchFiredAt] in
+            try? await Task.sleep(nanoseconds: UInt64(searchDebounceInterval * 1_000_000_000))
+            guard now == lastSearchFiredAt else { return }
+            if let token {
+                await collabStore.searchTaskUsers(token: token, search: trimmed)
+            }
+        }
+    }
+
+    // MARK: - Rows and Helpers
+
     private func detailRow(icon: String, title: String, value: String, valueColor: Color) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(.secondary)
-                .frame(width: 20)
+                .frame(width: 22)
 
             Text(title)
-                .font(.callout.weight(.medium))
-                .foregroundStyle(.secondary)
+                .font(.callout)
+                .foregroundStyle(.primary)
 
             Spacer(minLength: 0)
 
@@ -296,11 +316,73 @@ struct SingleTaskView: View {
                 .foregroundStyle(valueColor)
                 .multilineTextAlignment(.trailing)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(.vertical, 2)
     }
-    
-    // MARK: - Avatar from initials
+
+    private func shareResultRow(user: TaskUserModel) -> some View {
+        HStack(spacing: 12) {
+            avatarView(for: user.fullName)
+                .frame(width: 36, height: 36)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(user.fullName)
+                    .font(.callout.weight(.semibold))
+                Text(user.email)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Button {
+                sendInvite(to: user)
+            } label: {
+                if collabStore.isLoading {
+                    ProgressView().tint(.white)
+                } else {
+                    Text("Share")
+                        .font(.callout.weight(.semibold))
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.blue)
+            .disabled(collabStore.isLoading)
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func sendInvite(to user: TaskUserModel) {
+        guard let token = auth.token else { return }
+        Task {
+            await collabStore.sendInviteForTaskCollab(
+                token: token,
+                taskId: task.id,
+                invitedUserId: user.id
+            )
+            if collabStore.errorMessage == nil {
+                shareToastText = "Task Shared"
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.9)) {
+                    showShareToast = true
+                }
+                #if os(iOS)
+                let generator = UINotificationFeedbackGenerator()
+                generator.notificationOccurred(.success)
+                #endif
+                showShareSheet = false
+                Task {
+                    try? await Task.sleep(nanoseconds: 3_000_000_000)
+                    await MainActor.run {
+                        withAnimation(.spring(response: 0.5, dampingFraction: 0.95)) {
+                            showShareToast = false
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Avatar
+
     @ViewBuilder
     private func avatarView(for name: String) -> some View {
         let initials = initialsFromName(name)
@@ -314,18 +396,20 @@ struct SingleTaskView: View {
         }
         .accessibilityHidden(true)
     }
-    
+
     private func initialsFromName(_ name: String) -> String {
         let parts = name.split(separator: " ").map { String($0) }
         if parts.count >= 2 {
-            return String(parts[0].prefix(1) + parts[1].prefix(1)).uppercased()
+            let first = parts[0].prefix(1)
+            let second = parts[1].prefix(1)
+            return String(first + second).uppercased()
         } else if let first = parts.first {
             return String(first.prefix(2)).uppercased()
         } else {
             return "?"
         }
     }
-    
+
     private func colorFromString(_ string: String) -> Color {
         var hasher = Hasher()
         hasher.combine(string)
@@ -335,5 +419,47 @@ struct SingleTaskView: View {
         let b = Double(hash & 0x0000FF) / 255.0
         return Color(red: abs(r), green: abs(g), blue: abs(b))
     }
+
+    // MARK: - Toast View
+
+    private func toastView(text: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(.green)
+            Text(text)
+                .font(.headline)
+                .foregroundStyle(.primary)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .frame(maxWidth: 520)
+        .background(.ultraThinMaterial, in: Capsule())
+        .overlay(
+            Capsule().stroke(Color.primary.opacity(0.08))
+        )
+        .shadow(color: Color.black.opacity(0.12), radius: 10, x: 0, y: 6)
+        .padding(.top, 8)
+        .padding(.horizontal, 16)
+        .transition(.move(edge: .top).combined(with: .opacity))
+        .animation(.spring(response: 0.5, dampingFraction: 0.9), value: showShareToast)
+        .accessibilityAddTraits(.isStaticText)
+        .accessibilityLabel(text)
+    }
 }
 
+// MARK: - Chip
+
+private struct Chip: View {
+    let text: String
+    let color: Color
+
+    var body: some View {
+        Text(text)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(color)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(color.opacity(0.12), in: Capsule())
+    }
+}

@@ -63,8 +63,8 @@ struct TaskApi {
     // MARK: - Create Task
     static func createTask(
         title: String,
-        due: Date,
-        repeatType: RepeatType,
+        due: Date?,                 // optional
+        repeatType: RepeatType?,    // optional
         categoryId: String,
         token: String
     ) async throws -> TaskModel {
@@ -77,12 +77,25 @@ struct TaskApi {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let body: [String: Any] = [
+        var body: [String: Any] = [
             "title": title,
-            "due": ISO8601DateFormatter().string(from: due),
-            "repeat": repeatType.rawValue,
             "taskCategoryId": categoryId
         ]
+
+        // If your backend expects missing keys instead of null, comment out the NSNull lines
+        if let due {
+            body["due"] = ISO8601DateFormatter().string(from: due)
+        }
+            // else {
+//            body["due"] = NSNull()
+//        }
+
+        if let repeatType {
+            body["repeat"] = repeatType.rawValue
+      }
+//            else {
+//            body["repeat"] = NSNull()
+//        }
 
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 

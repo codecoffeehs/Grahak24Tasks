@@ -11,11 +11,16 @@ struct AddTaskView: View {
     @State private var repeatOption: RepeatType = .none
     @State private var selectedCategoryId: String = ""
     @State private var notificationsAllowed = true
+    @State private var setReminder = false
 
     private func checkNotificationPermission() {
         UNUserNotificationCenter.current().getNotificationSettings { settings in
             DispatchQueue.main.async {
                 notificationsAllowed = settings.authorizationStatus == .authorized
+                // If user doesn’t have permission, turn off reminder toggle to avoid confusion.
+                if !notificationsAllowed {
+                    setReminder = false
+                }
             }
         }
     }
@@ -33,6 +38,27 @@ struct AddTaskView: View {
         }
     }
 
+    private var minimumLeadTime: TimeInterval { 60 } // keep in sync with TaskStore.addTask check
+
+    private var isDueValid: Bool {
+        dueDate.timeIntervalSinceNow > minimumLeadTime
+    }
+
+    private var canSave: Bool {
+        guard !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              !selectedCategoryId.isEmpty,
+              !taskStore.isLoading
+        else { return false }
+
+        if setReminder {
+            // When reminders are on, require permission and a valid due date
+            return notificationsAllowed && isDueValid
+        } else {
+            // When reminders are off, title + category are enough
+            return true
+        }
+    }
+
     var body: some View {
         NavigationStack {
             Form {
@@ -40,8 +66,9 @@ struct AddTaskView: View {
                 // MARK: - Title
                 Section {
                     TextField("Title", text: $title)
+                        .textInputAutocapitalization(.sentences)
                 }
-                
+
                 // MARK: - Category
                 Section {
                     Picker("Category", selection: $selectedCategoryId) {
@@ -52,35 +79,63 @@ struct AddTaskView: View {
                     }
                 }
 
-                // MARK: - Due Date & Time
+                // MARK: - Reminder Toggle
                 Section {
-                    DatePicker(
-                        "Due Date",
-                        selection: $dueDate,
-                        in: Date().addingTimeInterval(120)...,
-                        displayedComponents: [.date, .hourAndMinute]
-                    )
-                    .disabled(!notificationsAllowed)
+                    Toggle(isOn: $setReminder) {
+                        Label("Set Reminder", systemImage: "bell.badge")
+                    }
+                    .onChange(of: setReminder) { _, newValue in
+                        // If user turns it on but notifications are not allowed, reset and advise.
+                        if newValue && !notificationsAllowed {
+                            setReminder = false
+                        }
+                    }
                 } footer: {
                     if !notificationsAllowed {
-                        Text("Enable notifications to set reminders for tasks.")
+                        Text("Enable notifications in Settings to set reminders for tasks.")
                             .foregroundStyle(.red)
+                    } else {
+                        Text("Turn this on to choose a date and time and optional repeat.")
                     }
                 }
 
-                // MARK: - Repeat
-                Section {
-                    Picker("Repeat", selection: $repeatOption) {
-                        ForEach(RepeatType.allCases) { option in
-                            Text(option.title)
-                                .tag(option)
+                // MARK: - Due Date & Time (only when reminder is ON and notifications allowed)
+                if setReminder {
+                    Section {
+                        DatePicker(
+                            "Due Date",
+                            selection: $dueDate,
+                            in: Date().addingTimeInterval(minimumLeadTime)...,
+                            displayedComponents: [.date, .hourAndMinute]
+                        )
+                        .disabled(!notificationsAllowed)
+                        if notificationsAllowed && !isDueValid {
+                            Text("Pick a time at least 1 minute from now.")
+                                .foregroundStyle(.red)
+                        }
+                    } footer: {
+                        if !notificationsAllowed {
+                            Text("Enable notifications to set reminders for tasks.")
+                                .foregroundStyle(.red)
                         }
                     }
-                    .disabled(!notificationsAllowed)
-                } footer: {
-                    if !notificationsAllowed {
-                        Text("Repeating tasks require notification permissions.")
-                            .foregroundStyle(.red)
+
+                    // MARK: - Repeat
+                    Section {
+                        Picker("Repeat", selection: $repeatOption) {
+                            ForEach(RepeatType.allCases) { option in
+                                Text(option.title)
+                                    .tag(option)
+                            }
+                        }
+                        .disabled(!notificationsAllowed)
+                    } footer: {
+                        if !notificationsAllowed {
+                            Text("Repeating tasks require notification permissions.")
+                                .foregroundStyle(.red)
+                        } else {
+                            Text("Choose how often this reminder should repeat.")
+                        }
                     }
                 }
             }
@@ -92,19 +147,24 @@ struct AddTaskView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Save") {
                         Task {
-                            if let token = auth.token {
-                                await taskStore.addTask(
-                                    title: title,
-                                    due: dueDate,
-                                    repeatType: repeatOption,
-                                    categoryId: selectedCategoryId,
-                                    token: token
-                                )
+                            guard let token = auth.token else { return }
+
+                            let finalDue: Date? = (setReminder && notificationsAllowed) ? dueDate : nil
+                            let finalRepeat: RepeatType? = (setReminder && notificationsAllowed) ? repeatOption : nil
+
+                            await taskStore.addTask(
+                                title: title.trimmingCharacters(in: .whitespacesAndNewlines),
+                                due: finalDue,
+                                repeatType: finalRepeat,
+                                categoryId: selectedCategoryId,
+                                token: token
+                            )
+                            if taskStore.errorMessage == nil {
                                 dismiss()
                             }
                         }
                     }
-                    .disabled(title.isEmpty || selectedCategoryId.isEmpty || taskStore.isLoading)
+                    .disabled(!canSave)
                 }
 
                 // Cancel
@@ -127,6 +187,5 @@ struct AddTaskView: View {
                 }
             }
         }
-        
     }
 }

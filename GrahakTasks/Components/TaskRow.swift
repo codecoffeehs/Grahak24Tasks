@@ -2,20 +2,19 @@ import SwiftUI
 
 struct TaskRow: View {
     let title: String
-    let due: String
+    let due: String?                  // optional
     let isCompleted: Bool
-    let repeatType: RepeatType
+    let repeatType: RepeatType?       // optional
     let categoryTitle: String
     let colorHex: String
     let categoryIcon: String
     
-    let isShared: Bool
-    let sharedWithCount : Int
+
     
     private var categoryColor: Color { Color(hex: colorHex) }
 
     private var repeatColor: Color {
-        switch repeatType {
+        switch repeatType ?? .none {
         case .none: return .clear
         case .daily: return .blue
         case .everyOtherDay: return .purple
@@ -48,10 +47,7 @@ struct TaskRow: View {
                         dueChip
                         repeatChip
                         categoryChip
-                        if sharedWithCount > 0 {
-                            sharedChip
-                            sharedCountChip
-                        }
+                       
                     }
 
                     // Wrapped fallback
@@ -62,10 +58,7 @@ struct TaskRow: View {
                         }
                         HStack(spacing: 8) {
                             categoryChip
-                            if sharedWithCount > 0 {
-                                sharedChip
-                                sharedCountChip
-                            }
+                            
                         }
                     }
                 }
@@ -82,7 +75,7 @@ struct TaskRow: View {
 
     @ViewBuilder
     private var dueChip: some View {
-        if let dueInfo = DateParser.parseDueDate(from: due) {
+        if let due, let dueInfo = DateParser.parseDueDate(from: due) {
             HStack(spacing: 4) {
                 Image(systemName: "calendar")
                     .font(.system(size: 11, weight: .semibold))
@@ -107,7 +100,7 @@ struct TaskRow: View {
 
     @ViewBuilder
     private var repeatChip: some View {
-        if repeatType != .none {
+        if let repeatType, repeatType != .none {
             HStack(spacing: 4) {
                 Image(systemName: "arrow.clockwise")
                     .font(.system(size: 11, weight: .semibold))
@@ -175,25 +168,7 @@ struct TaskRow: View {
         .fixedSize(horizontal: true, vertical: false)
     }
 
-    private var sharedCountChip: some View {
-        HStack(spacing: 4) {
-            Text("+\(sharedWithCount)")
-                .font(.system(size: 12, weight: .semibold))
-                .lineLimit(1)
-        }
-        .foregroundStyle(categoryColor)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(
-            Capsule()
-                .fill(chipBackground(for: categoryColor))
-        )
-        .overlay(
-            Capsule()
-                .stroke(chipStroke(for: categoryColor), lineWidth: 0.5)
-        )
-        .fixedSize(horizontal: true, vertical: false)
-    }
+    
 
     // MARK: - Chip styling helpers
 

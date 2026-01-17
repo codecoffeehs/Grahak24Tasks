@@ -4,6 +4,7 @@ struct RecentTasksResponse: Codable {
     let today: TaskSection
     let upcoming: TaskSection
     let overdue: TaskSection
+    let noDue : TaskSection
 }
 
 struct TaskSection: Codable {
