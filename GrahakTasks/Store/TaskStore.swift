@@ -27,7 +27,7 @@ class TaskStore: ObservableObject {
     @Published var allTodayTasks : [TaskModel] = []
     @Published var allUpcomingTasks : [TaskModel] = []
     @Published var allOverdueTasks : [TaskModel] = []
-    
+    @Published var allNoDueTasks : [TaskModel] = []
     // MARK: - Tasks For Category
     @Published var categoryTasks: [TaskModel] = []
     // MARK: - Fetch Recent Tasks (Home)
@@ -198,6 +198,21 @@ class TaskStore: ObservableObject {
         do{
             let response = try await TaskApi.fetchOverdueTasks(token: token)
             allOverdueTasks = response
+        }catch {
+                errorMessage = error.localizedDescription
+                showErrorAlert = true
+            }
+
+            isLoading = false
+            
+        }
+    // MARK: - FETCH NODUE TASKS
+    func fetchNoDueTasks(token:String) async{
+        isLoading = true
+        errorMessage = nil
+        do{
+            let response = try await TaskApi.fetchNoDueTasks(token: token)
+            allNoDueTasks = response
         }catch {
                 errorMessage = error.localizedDescription
                 showErrorAlert = true

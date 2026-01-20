@@ -307,6 +307,32 @@ struct TaskApi {
         throw ApiError(message: raw)
     }
 
+    // MARK: - Fetch NoDue Tasks
+    static func fetchNoDueTasks(token: String) async throws -> [TaskModel] {
+        guard let url = URL(string: "\(baseURL)/task/nodue") else {
+            throw ApiError(message: "Invalid URL")
+        }
+
+        var request = NetworkHelpers.authorizedRequest(url: url, token: token)
+        request.httpMethod = "GET"
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let http = response as? HTTPURLResponse else {
+            throw ApiError(message: "Invalid server response")
+        }
+
+        if (200...299).contains(http.statusCode) {
+            return try JSONDecoder().decode([TaskModel].self, from: data)
+        }
+
+        if let apiError = try? JSONDecoder().decode(ApiErrorResponse.self, from: data) {
+            throw ApiError(message: apiError.message)
+        }
+
+        let raw = String(data: data, encoding: .utf8) ?? "Failed to fetch overdue tasks"
+        throw ApiError(message: raw)
+    }
 
     // MARK: - Fetch Tasks For Category
     static func fetchTasksForCategory(token: String, categoryId: String) async throws -> [TaskModel] {
