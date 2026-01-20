@@ -69,7 +69,7 @@ struct SignupView: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
 
-                    TextField("John Appleseed", text: $fullName)
+                    TextField("Name Here", text: $fullName)
                         .textInputAutocapitalization(.words)
                         .disableAutocorrection(true)
                         .textContentType(.name)

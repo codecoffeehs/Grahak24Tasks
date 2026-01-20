@@ -9,7 +9,7 @@ struct AddTaskView: View {
     @State private var title = ""
     @State private var dueDate = Date().addingTimeInterval(120)
     @State private var repeatOption: RepeatType = .none
-    @State private var selectedCategoryId: String = ""
+    @State private var selectedCategoryId: String = "__placeholder__"
     @State private var notificationsAllowed = true
     @State private var setReminder = false
 
@@ -17,7 +17,6 @@ struct AddTaskView: View {
         UNUserNotificationCenter.current().getNotificationSettings { settings in
             DispatchQueue.main.async {
                 notificationsAllowed = settings.authorizationStatus == .authorized
-                // If user doesn’t have permission, turn off reminder toggle to avoid confusion.
                 if !notificationsAllowed {
                     setReminder = false
                 }
@@ -27,7 +26,8 @@ struct AddTaskView: View {
 
     // Pick the best default category: "Others" if available, otherwise first category
     private func selectDefaultCategoryIfNeeded() {
-        guard selectedCategoryId.isEmpty else { return }
+        // Only pick a real ID if we currently have a placeholder or empty
+        guard selectedCategoryId == "__placeholder__" || selectedCategoryId.isEmpty else { return }
 
         if let others = categoryStore.categories.first(where: {
             $0.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "others"
@@ -38,6 +38,10 @@ struct AddTaskView: View {
         }
     }
 
+    private var categoriesAvailable: Bool {
+        !categoryStore.categories.isEmpty
+    }
+
     private var minimumLeadTime: TimeInterval { 60 } // keep in sync with TaskStore.addTask check
 
     private var isDueValid: Bool {
@@ -45,10 +49,9 @@ struct AddTaskView: View {
     }
 
     private var canSave: Bool {
-        guard !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              !selectedCategoryId.isEmpty,
-              !taskStore.isLoading
-        else { return false }
+        let hasTitle = !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasRealCategory = categoriesAvailable && selectedCategoryId != "__placeholder__" && !selectedCategoryId.isEmpty
+        guard hasTitle, hasRealCategory, !taskStore.isLoading else { return false }
 
         if setReminder {
             // When reminders are on, require permission and a valid due date
@@ -71,11 +74,26 @@ struct AddTaskView: View {
 
                 // MARK: - Category
                 Section {
-                    Picker("Category", selection: $selectedCategoryId) {
-                        ForEach(categoryStore.categories, id: \.id) { category in
-                            Text(category.title)
-                                .tag(category.id)
+                    if categoriesAvailable {
+                        Picker("Category", selection: $selectedCategoryId) {
+                            if selectedCategoryId == "__placeholder__" {
+                                Text("Select a category").tag("__placeholder__")
+                            }
+                            ForEach(categoryStore.categories, id: \.id) { category in
+                                Text(category.title)
+                                    .tag(category.id)
+                            }
                         }
+                    } else {
+                        HStack {
+                            ProgressView()
+                            Text("Loading categories…")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                } footer: {
+                    if !categoriesAvailable {
+                        Text("We’re loading your categories. This usually takes a moment.")
                     }
                 }
 
@@ -181,11 +199,14 @@ struct AddTaskView: View {
                 if categoryStore.categories.isEmpty, let token = auth.token {
                     await categoryStore.fetchCategories(token: token)
                 }
-                // After categories are available, pick default
                 await MainActor.run {
                     selectDefaultCategoryIfNeeded()
                 }
             }
+        }
+        // When categories load later, immediately select a default to ensure selection matches a tag
+        .onChange(of: categoryStore.categories.count) { _, _ in
+            selectDefaultCategoryIfNeeded()
         }
     }
 }

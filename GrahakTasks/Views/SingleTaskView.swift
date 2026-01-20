@@ -3,21 +3,19 @@ import SwiftUI
 struct SingleTaskView: View {
     let task: TaskModel
 
-    // Editing title
+    // Editing
     @State private var isEditing = false
     @State private var newTaskTitle = ""
 
-    // Share
+    // Share (simplified: pick a user from taskUsers)
     @State private var showShareSheet = false
-    @State private var searchText = ""
+    @State private var isSharing = false
+    @State private var shareMessage: String?
+    @State private var showShareAlert = false
 
-    // Debounce
-    @State private var lastSearchFiredAt: Date = .distantPast
-    private let searchDebounceInterval: TimeInterval = 0.35
-
-    // Toast
-    @State private var showShareToast = false
-    @State private var shareToastText = "Task Shared"
+    // Search for share
+    @State private var searchTerm: String = ""
+    @State private var searchTask: Task<Void, Never>?
 
     // Delete
     @State private var showDeleteConfirm = false
@@ -69,15 +67,137 @@ struct SingleTaskView: View {
             actionsSection()
         }
         .listStyle(.insetGrouped)
-        .navigationTitle(isEditing ? "Editing" : "Task")
+        .navigationTitle("Task")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(isEditing)
-        .toolbar { toolbarContent() }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    if isEditing {
+                        isEditing = false
+                    } else {
+                        newTaskTitle = task.title
+                        isEditing = true
+                    }
+                } label: {
+                    Text(isEditing ? "Done" : "Edit")
+                }
+            }
+        }
         .onDisappear { isEditing = false }
 
-        // Share Sheet
-        .sheet(isPresented: $showShareSheet) {
-            shareSheet()
+        // Share Sheet (with search requirement and debounce)
+        .sheet(isPresented: $showShareSheet, onDismiss: {
+            // Reset search on close
+            searchTask?.cancel()
+            searchTask = nil
+            searchTerm = ""
+        }) {
+            NavigationStack {
+                Group {
+                    if searchTerm.trimmingCharacters(in: .whitespacesAndNewlines).count < 3 {
+                        // Guidance until user types at least 3 characters
+                        ContentUnavailableView(
+                            "Search to Share",
+                            systemImage: "magnifyingglass",
+                            description: Text("Type at least 3 characters to search for a user.")
+                        )
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else {
+                        // Show loading, error, empty or results based on store state
+                        if collabStore.isLoading && collabStore.taskUsers.isEmpty {
+                            ProgressView("Searching…")
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        } else if let err = collabStore.errorMessage {
+                            ContentUnavailableView(
+                                "Error Occured",
+                                systemImage: "exclamationmark.triangle",
+                                description: Text(err)
+                            )
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        } else if collabStore.taskUsers.isEmpty {
+                            ContentUnavailableView(
+                                "No users found",
+                                systemImage: "person.crop.circle.badge.exclam",
+                                description: Text("Try a different name or email.")
+                            )
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        } else {
+                            List {
+                                Section("Tap to share with") {
+                                    ForEach(collabStore.taskUsers) { user in
+                                        Button {
+                                            shareNow(selectedUser: user)
+                                        } label: {
+                                            HStack {
+                                                VStack(alignment: .leading, spacing: 2) {
+                                                    Text(user.fullName)
+                                                        .font(.body.weight(.semibold))
+                                                    Text(user.email)
+                                                        .font(.caption)
+                                                        .foregroundStyle(.secondary)
+                                                }
+                                                Spacer()
+                                                if isSharing {
+                                                    ProgressView()
+                                                } else {
+                                                    Image(systemName: "square.and.arrow.up")
+                                                        .foregroundStyle(.blue)
+                                                }
+                                            }
+                                        }
+                                        .disabled(isSharing)
+                                    }
+                                }
+                            }
+                            .listStyle(.insetGrouped)
+                        }
+                    }
+                }
+                .navigationTitle("Share Task")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Close") { showShareSheet = false }
+                    }
+                }
+                // Debounced search trigger
+                .onChange(of: searchTerm) { _, newValue in
+                    let term = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                    // Cancel prior debounce task
+                    searchTask?.cancel()
+
+                    // If fewer than 3 chars, clear results and stop
+                    if term.count < 3 {
+                        collabStore.taskUsers = []
+                        collabStore.errorMessage = nil
+                        collabStore.isLoading = false
+                        return
+                    }
+
+                    // Debounce
+                    searchTask = Task { [weak auth] in
+                        // 400ms debounce
+                        try? await Task.sleep(nanoseconds: 400_000_000)
+                        guard !Task.isCancelled else { return }
+                        guard let token = auth?.token else { return }
+                        await collabStore.searchTaskUsers(token: token, search: term)
+                    }
+                }
+            }
+            // Use platform search UI
+            .searchable(text: $searchTerm, prompt: "Search by name or email")
+            .textInputAutocapitalization(.never)
+            .autocorrectionDisabled(true)
+            .presentationDetents([.medium, .large])
+            .alert("Share", isPresented: $showShareAlert) {
+                Button("OK", role: .cancel) {
+                    if shareMessage == "Task shared" {
+                        showShareSheet = false
+                    }
+                }
+            } message: {
+                Text(shareMessage ?? "")
+            }
         }
 
         // Delete confirmation
@@ -108,13 +228,6 @@ struct SingleTaskView: View {
             Button("OK", role: .cancel) { }
         } message: {
             Text(localErrorMessage ?? "Something went wrong")
-        }
-
-        // Toast overlay
-        .overlay(alignment: .top) {
-            if showShareToast {
-                toastView(text: shareToastText)
-            }
         }
     }
 
@@ -173,6 +286,14 @@ struct SingleTaskView: View {
         Section("Actions") {
             Button {
                 showShareSheet = true
+                shareMessage = nil
+                // Reset state for a fresh search session
+                searchTask?.cancel()
+                searchTask = nil
+                searchTerm = ""
+                collabStore.taskUsers = []
+                collabStore.errorMessage = nil
+                collabStore.isLoading = false
             } label: {
                 Label("Share Task", systemImage: "square.and.arrow.up")
                     .font(.callout.weight(.semibold))
@@ -187,112 +308,29 @@ struct SingleTaskView: View {
         }
     }
 
-    // MARK: - Toolbar
+    // MARK: - Simplified Share
 
-    @ToolbarContentBuilder
-    private func toolbarContent() -> some ToolbarContent {
-        if isEditing {
-            ToolbarItem(placement: .topBarLeading) {
-                Button("Cancel") {
-                    isEditing = false
-                }
-                .foregroundStyle(.red)
-            }
-        }
-
-        if !isEditing {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    isEditing = true
-                    newTaskTitle = task.title
-                } label: {
-                    Image(systemName: "pencil")
-                }
-            }
-        }
-    }
-
-    // MARK: - Share Sheet
-
-    @ViewBuilder
-    private func shareSheet() -> some View {
-        NavigationStack {
-            Group {
-                if collabStore.isLoading {
-                    ProgressView()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    List {
-                        if searchText.trimmingCharacters(in: .whitespacesAndNewlines).count < 3 {
-                            Section {
-                                VStack(alignment: .leading, spacing: 6) {
-                                    Text("Start typing to search")
-                                        .font(.callout.weight(.semibold))
-                                    Text("Enter at least 3 characters to search for people.")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                .padding(.vertical, 6)
-                            }
-                        }
-
-                        if !collabStore.taskUsers.isEmpty {
-                            Section("Results") {
-                                ForEach(collabStore.taskUsers) { user in
-                                    shareResultRow(user: user)
-                                }
-                            }
-                        }
-
-                        if searchText.count >= 3 && collabStore.taskUsers.isEmpty && !collabStore.isLoading {
-                            Section {
-                                ContentUnavailableView(
-                                    "No results",
-                                    systemImage: "person.crop.circle.badge.questionmark",
-                                    description: Text("Try a different name or email")
-                                )
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            }
-                        }
-                    }
-                    .listStyle(.insetGrouped)
-                }
-            }
-            .navigationTitle("Share Task")
-            .navigationBarTitleDisplayMode(.inline)
-        }
-        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search people")
-        .textInputAutocapitalization(.never)
-        .autocorrectionDisabled(true)
-        .onChange(of: searchText) { _, newValue in
-            handleSearchChange(newValue)
-        }
-        .alert("Error", isPresented: $collabStore.showErrorAlert) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text(collabStore.errorMessage ?? "Something went wrong")
-        }
-        .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
-    }
-
-    private func handleSearchChange(_ newValue: String) {
-        let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.count >= 3 else {
-            collabStore.taskUsers = []
+    private func shareNow(selectedUser: TaskUserModel) {
+        guard let token = auth.token else {
+            shareMessage = "You must be logged in."
+            showShareAlert = true
             return
         }
 
-        let now = Date()
-        lastSearchFiredAt = now
-        let token = auth.token
+        isSharing = true
+        shareMessage = nil
 
-        Task { [lastSearchFiredAt] in
-            try? await Task.sleep(nanoseconds: UInt64(searchDebounceInterval * 1_000_000_000))
-            guard now == lastSearchFiredAt else { return }
-            if let token {
-                await collabStore.searchTaskUsers(token: token, search: trimmed)
+        Task {
+            await collabStore.shareTask(token: token, taskId: task.id, sharedWithUserId: selectedUser.id)
+
+            if let error = collabStore.errorMessage {
+                shareMessage = error
+            } else {
+                shareMessage = "Task shared"
             }
+
+            isSharing = false
+            showShareAlert = true
         }
     }
 
@@ -317,134 +355,6 @@ struct SingleTaskView: View {
                 .multilineTextAlignment(.trailing)
         }
         .padding(.vertical, 2)
-    }
-
-    private func shareResultRow(user: TaskUserModel) -> some View {
-        HStack(spacing: 12) {
-            avatarView(for: user.fullName)
-                .frame(width: 36, height: 36)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(user.fullName)
-                    .font(.callout.weight(.semibold))
-                Text(user.email)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
-            Button {
-                sendInvite(to: user)
-            } label: {
-                if collabStore.isLoading {
-                    ProgressView().tint(.white)
-                } else {
-                    Text("Share")
-                        .font(.callout.weight(.semibold))
-                }
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(.blue)
-            .disabled(collabStore.isLoading)
-        }
-        .padding(.vertical, 4)
-    }
-
-    private func sendInvite(to user: TaskUserModel) {
-        guard let token = auth.token else { return }
-        Task {
-            await collabStore.sendInviteForTaskCollab(
-                token: token,
-                taskId: task.id,
-                invitedUserId: user.id
-            )
-            if collabStore.errorMessage == nil {
-                shareToastText = "Task Shared"
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.9)) {
-                    showShareToast = true
-                }
-                #if os(iOS)
-                let generator = UINotificationFeedbackGenerator()
-                generator.notificationOccurred(.success)
-                #endif
-                showShareSheet = false
-                Task {
-                    try? await Task.sleep(nanoseconds: 3_000_000_000)
-                    await MainActor.run {
-                        withAnimation(.spring(response: 0.5, dampingFraction: 0.95)) {
-                            showShareToast = false
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // MARK: - Avatar
-
-    @ViewBuilder
-    private func avatarView(for name: String) -> some View {
-        let initials = initialsFromName(name)
-        let bg = colorFromString(name)
-        ZStack {
-            Circle()
-                .fill(bg.opacity(0.2))
-            Text(initials)
-                .font(.caption.weight(.bold))
-                .foregroundStyle(bg)
-        }
-        .accessibilityHidden(true)
-    }
-
-    private func initialsFromName(_ name: String) -> String {
-        let parts = name.split(separator: " ").map { String($0) }
-        if parts.count >= 2 {
-            let first = parts[0].prefix(1)
-            let second = parts[1].prefix(1)
-            return String(first + second).uppercased()
-        } else if let first = parts.first {
-            return String(first.prefix(2)).uppercased()
-        } else {
-            return "?"
-        }
-    }
-
-    private func colorFromString(_ string: String) -> Color {
-        var hasher = Hasher()
-        hasher.combine(string)
-        let hash = hasher.finalize()
-        let r = Double((hash & 0xFF0000) >> 16) / 255.0
-        let g = Double((hash & 0x00FF00) >> 8) / 255.0
-        let b = Double(hash & 0x0000FF) / 255.0
-        return Color(red: abs(r), green: abs(g), blue: abs(b))
-    }
-
-    // MARK: - Toast View
-
-    private func toastView(text: String) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(.green)
-            Text(text)
-                .font(.headline)
-                .foregroundStyle(.primary)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .frame(maxWidth: 520)
-        .background(.ultraThinMaterial, in: Capsule())
-        .overlay(
-            Capsule().stroke(Color.primary.opacity(0.08))
-        )
-        .shadow(color: Color.black.opacity(0.12), radius: 10, x: 0, y: 6)
-        .padding(.top, 8)
-        .padding(.horizontal, 16)
-        .transition(.move(edge: .top).combined(with: .opacity))
-        .animation(.spring(response: 0.5, dampingFraction: 0.9), value: showShareToast)
-        .accessibilityAddTraits(.isStaticText)
-        .accessibilityLabel(text)
     }
 }
 

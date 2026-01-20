@@ -29,4 +29,27 @@ public struct DateParser {
 
         return (prefix + relative, isOverdue)
     }
+    
+    /// NEW: Converts an ISO8601 date string into "moments ago / 2 days ago / 3 days ago".
+    public static func timeAgo(
+            from isoString: String,
+            referenceDate: Date = Date()
+        ) -> String? {
+
+            let formatter = ISO8601DateFormatter()
+            guard let date = formatter.date(from: isoString) else {
+                return nil
+            }
+
+            let relativeFormatter = RelativeDateTimeFormatter()
+            relativeFormatter.unitsStyle = .full
+
+            // For past dates => "2 days ago", for very recent => "moments ago"
+            let relative = relativeFormatter.localizedString(
+                for: date,
+                relativeTo: referenceDate
+            )
+
+            return relative
+        }
 }

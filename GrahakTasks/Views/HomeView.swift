@@ -4,18 +4,30 @@ struct HomeView: View {
     @StateObject private var auth = AuthStore()
     var body: some View {
         TabView {
-            Tab("Home",systemImage: "house.fill"){
-                TaskListView()
-            }
-            Tab("Category",systemImage: "folder.fill"){
-                CategoryView()
-            }
-            Tab("Shared",systemImage: "person.line.dotted.person"){
-                SharedView()
-            }
-            Tab("Profile",systemImage: "person.fill"){
-                ProfileView()
-            }
+            // Home
+            TaskListView()
+                .tabItem {
+                    Image(systemName: "house.fill")
+                }
+
+            // Categories
+            CategoryView()
+                .tabItem {
+                    Image(systemName: "folder.fill")
+                }
+
+            // Requests (currently still using SharedView until you rename it to RequestsView)
+            RequestView()
+                .tabItem {
+                    Image(systemName: "tray.full")
+                }
+
+            // Profile
+            ProfileView()
+                .tabItem {
+                    Image(systemName: "person.fill")
+                }
+
 //            Tab(role: .search){
 //                SearchView()
 //            }
@@ -26,5 +38,3 @@ struct HomeView: View {
         .tabBarMinimizeBehavior(.onScrollDown)
     }
 }
-
-
