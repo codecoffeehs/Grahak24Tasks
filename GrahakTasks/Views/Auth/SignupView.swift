@@ -12,6 +12,9 @@ struct SignupView: View {
     @EnvironmentObject var auth: AuthStore
     @Environment(\.colorScheme) private var colorScheme
 
+    // Navigation to confirm view
+    @State private var navigateToConfirm = false
+
     enum Field {
         case fullName
         case email
@@ -289,6 +292,11 @@ struct SignupView: View {
         .onChange(of: auth.isAuthenticated) { _, newValue in
             if newValue { successHaptic() }
         }
+        // Modern navigation for confirm screen
+        .navigationDestination(isPresented: $navigateToConfirm) {
+            SignupConfirmView(email: email.trimmingCharacters(in: .whitespacesAndNewlines))
+                .environmentObject(auth)
+        }
     }
 
     // Minimal underline color logic (consistent with LoginView)
@@ -313,6 +321,10 @@ struct SignupView: View {
             email: email.trimmingCharacters(in: .whitespacesAndNewlines),
             password: password
         )
+        // On success, navigate to confirm screen.
+        if auth.errorMessage == nil {
+            navigateToConfirm = true
+        }
     }
 
     // MARK: - Haptics

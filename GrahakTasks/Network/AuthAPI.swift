@@ -48,12 +48,12 @@ struct AuthAPI {
         }
     }
 
-    // MARK: - Signup
+    // MARK: - Signup (no decoding, just success check)
     static func signup(
         fullName: String,
         email: String,
         password: String
-    ) async throws -> AuthResponse {
+    ) async throws {
 
         // 1. URL
         guard let url = URL(string: "\(baseURL)/signup") else {
@@ -82,8 +82,53 @@ struct AuthAPI {
             throw ApiError(message: "Invalid server response")
         }
 
+        // 6. Handle status codes (no body expected)
+        if (200...299).contains(http.statusCode) {
+            return
+        } else {
+            if let apiError = try? JSONDecoder().decode(ApiErrorResponse.self, from: data) {
+                throw ApiError(message: apiError.message)
+            } else {
+                let raw = String(data: data, encoding: .utf8) ?? "Something went wrong. Please try again."
+                throw ApiError(message: raw)
+            }
+        }
+    }
+    
+    // MARK: - Verify
+    static func verify(
+        email: String,
+        otp: String
+    ) async throws -> AuthResponse {
+
+        // 1. URL
+        guard let url = URL(string: "\(baseURL)/verify") else {
+            throw ApiError(message: "Invalid URL")
+        }
+
+        // 2. Request
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        // 3. Body
+        let body = VerifySignupRequest(
+            email: email,
+            otp: otp
+        )
+
+        request.httpBody = try JSONEncoder().encode(body)
+
+        // 4. Network call
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        // 5. Validate response
+        guard let http = response as? HTTPURLResponse else {
+            throw ApiError(message: "Invalid server response")
+        }
+
         // 6. Handle status codes
-        if http.statusCode == 201 || http.statusCode == 200 {
+        if http.statusCode == 200 {
             return try JSONDecoder().decode(AuthResponse.self, from: data)
         } else {
             if let apiError = try? JSONDecoder().decode(ApiErrorResponse.self, from: data) {

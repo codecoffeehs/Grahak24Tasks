@@ -61,19 +61,46 @@ class AuthStore: ObservableObject {
         errorMessage = nil
 
         do {
-            let response = try await AuthAPI.signup(
+            _ = try await AuthAPI.signup(
                 fullName: fullName,
                 email: email,
                 password: password
             )
 
+//            token = response.token
+//            KeychainService.save(key: tokenKey, value: response.token)
+//            KeychainService.save(key: "fullName", value: response.userResponse.fullName)
+//            withAnimation{
+//                isAuthenticated = true
+//            }
+
+        } catch {
+            errorMessage = error.localizedDescription
+            showErrorAlert = true
+        }
+
+        isLoading = false
+    }
+
+    // MARK: - Verify (post-signup OTP)
+    func verify(email: String, otp: String) async {
+        isLoading = true
+        errorMessage = nil
+
+        do {
+            let response = try await AuthAPI.verify(
+                email: email,
+                otp: otp
+            )
+
+            // Persist token and user info
             token = response.token
             KeychainService.save(key: tokenKey, value: response.token)
             KeychainService.save(key: "fullName", value: response.userResponse.fullName)
-            withAnimation{
+
+            withAnimation {
                 isAuthenticated = true
             }
-
 
         } catch {
             errorMessage = error.localizedDescription
