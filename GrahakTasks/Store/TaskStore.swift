@@ -138,6 +138,67 @@ class TaskStore: ObservableObject {
             showErrorAlert = true
         }
     }
+    
+    // MARK: - Edit Task
+    func editTask(
+        taskId: String,
+        title: String? = nil,
+        due: Date? = nil,
+        isCompleted: Bool? = nil,
+        repeatType: RepeatType? = nil,
+        taskCategoryId: String? = nil,
+        token: String
+    ) async throws -> TaskModel {
+        isLoading = true
+        errorMessage = nil
+        
+        // ✅ validate due date if provided
+        if let due {
+            let minimumDelay: TimeInterval = 180
+            guard due.timeIntervalSinceNow > minimumDelay else {
+                isLoading = false
+                errorMessage = "Due time must be at least 3 minutes from now."
+                showErrorAlert = true
+                throw NSError(domain: "TaskStore", code: 400, userInfo: [NSLocalizedDescriptionKey: "Due time must be at least 3 minutes from now."])
+            }
+        }
+        
+        do {
+            let updatedTask = try await TaskApi.editTask(
+                taskId: taskId,
+                title: title,
+                due: due,
+                isCompleted: isCompleted,
+                repeatType: repeatType,
+                taskCategoryId: taskCategoryId,
+                token: token
+            )
+            
+            // 🔔 Notifications handling
+            // If due is removed OR task completed => cancel
+    //        if updatedTask.isCompleted || updatedTask.due == nil {
+    //            NotificationManager.shared.cancelTaskNotification(id: updatedTask.id)
+    //        }
+    //        // If task not completed and has due => reschedule
+    //        else if let dueDate = updatedTask.due {
+    //            NotificationManager.shared.scheduleTaskNotification(
+    //                id: updatedTask.id,
+    //                title: updatedTask.title,
+    //                dueDate: dueDate
+    //            )
+    //        }
+            
+            // ✅ refresh home sections
+            await fetchRecentTasks(token: token)
+            isLoading = false
+            return updatedTask
+        } catch {
+            isLoading = false
+            errorMessage = error.localizedDescription
+            showErrorAlert = true
+            throw error
+        }
+    }
 
     // MARK: - Delete Task
     func deleteTask(

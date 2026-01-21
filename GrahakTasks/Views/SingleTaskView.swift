@@ -1,11 +1,17 @@
 import SwiftUI
 
 struct SingleTaskView: View {
-    let task: TaskModel
+    let initialTask: TaskModel
+    @State private var task: TaskModel
 
     // Editing
     @State private var isEditing = false
     @State private var newTaskTitle = ""
+    @State private var newDueDate = Date().addingTimeInterval(180)
+    @State private var newRepeatOption: RepeatType = .none
+    @State private var newCategoryId: String = ""
+    @State private var setReminder = false
+    @State private var notificationsAllowed = true
 
     // Share (simplified: pick a user from taskUsers)
     @State private var showShareSheet = false
@@ -24,7 +30,14 @@ struct SingleTaskView: View {
 
     @EnvironmentObject private var auth: AuthStore
     @EnvironmentObject private var collabStore: CollabStore
+    @EnvironmentObject private var taskStore: TaskStore
+    @EnvironmentObject private var categoryStore: CategoryStore
     @Environment(\.dismiss) private var dismiss
+
+    init(task: TaskModel) {
+        self.initialTask = task
+        self._task = State(initialValue: task)
+    }
 
     private var categoryColor: Color {
         Color(hex: task.color)
@@ -60,34 +73,68 @@ struct SingleTaskView: View {
         return .secondary
     }
 
+    private var minimumLeadTime: TimeInterval { 180 } // 3 minutes
+
+    private var isDueValid: Bool {
+        newDueDate.timeIntervalSinceNow > minimumLeadTime
+    }
+
+    private var canSave: Bool {
+        guard isEditing else { return false }
+        let hasTitle = !newTaskTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasRealCategory = !newCategoryId.isEmpty && newCategoryId != "__placeholder__"
+        guard hasTitle, hasRealCategory, !taskStore.isLoading else { return false }
+
+        if setReminder {
+            return notificationsAllowed && isDueValid
+        } else {
+            return true
+        }
+    }
+
     var body: some View {
         List {
-            headerSection()
-            detailsSection()
-            actionsSection()
+            if isEditing {
+                editingSection()
+            } else {
+                headerSection()
+                detailsSection()
+                actionsSection()
+            }
         }
         .listStyle(.insetGrouped)
         .navigationTitle("Task")
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(isEditing)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    if isEditing {
-                        isEditing = false
-                    } else {
-                        newTaskTitle = task.title
-                        isEditing = true
+                if isEditing {
+                    Button("Save") {
+                        saveTask()
                     }
-                } label: {
-                    Text(isEditing ? "Done" : "Edit")
+                    .disabled(!canSave)
+                } else {
+                    Button("Edit") {
+                        startEditing()
+                    }
+                }
+            }
+            
+            if isEditing {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") {
+                        isEditing = false
+                    }
                 }
             }
         }
-        .onDisappear { isEditing = false }
+        .onAppear {
+            checkNotificationPermission()
+            fetchCategoriesIfNeeded()
+        }
 
         // Share Sheet (with search requirement and debounce)
         .sheet(isPresented: $showShareSheet, onDismiss: {
-            // Reset search on close
             searchTask?.cancel()
             searchTask = nil
             searchTerm = ""
@@ -95,7 +142,6 @@ struct SingleTaskView: View {
             NavigationStack {
                 Group {
                     if searchTerm.trimmingCharacters(in: .whitespacesAndNewlines).count < 3 {
-                        // Guidance until user types at least 3 characters
                         ContentUnavailableView(
                             "Search to Share",
                             systemImage: "magnifyingglass",
@@ -103,7 +149,6 @@ struct SingleTaskView: View {
                         )
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     } else {
-                        // Show loading, error, empty or results based on store state
                         if collabStore.isLoading && collabStore.taskUsers.isEmpty {
                             ProgressView("Searching…")
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -160,13 +205,10 @@ struct SingleTaskView: View {
                         Button("Close") { showShareSheet = false }
                     }
                 }
-                // Debounced search trigger
                 .onChange(of: searchTerm) { _, newValue in
                     let term = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
-                    // Cancel prior debounce task
                     searchTask?.cancel()
 
-                    // If fewer than 3 chars, clear results and stop
                     if term.count < 3 {
                         collabStore.taskUsers = []
                         collabStore.errorMessage = nil
@@ -174,9 +216,7 @@ struct SingleTaskView: View {
                         return
                     }
 
-                    // Debounce
                     searchTask = Task { [weak auth] in
-                        // 400ms debounce
                         try? await Task.sleep(nanoseconds: 400_000_000)
                         guard !Task.isCancelled else { return }
                         guard let token = auth?.token else { return }
@@ -184,7 +224,6 @@ struct SingleTaskView: View {
                     }
                 }
             }
-            // Use platform search UI
             .searchable(text: $searchTerm, prompt: "Search by name or email")
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled(true)
@@ -231,7 +270,104 @@ struct SingleTaskView: View {
         }
     }
 
-    // MARK: - Sections
+    // MARK: - Editing Section
+
+    @ViewBuilder
+    private func editingSection() -> some View {
+        // Title
+        Section {
+            TextField("Title", text: $newTaskTitle)
+                .textInputAutocapitalization(.sentences)
+        }
+
+        // Category
+        Section {
+            if !categoryStore.categories.isEmpty {
+                Picker("Category", selection: $newCategoryId) {
+                    ForEach(categoryStore.categories, id: \.id) { category in
+                        Text(category.title)
+                            .tag(category.id)
+                    }
+                }
+            } else {
+                HStack {
+                    ProgressView()
+                    Text("Loading categories…")
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+
+        // Reminder Toggle
+        Section {
+            Toggle(isOn: $setReminder) {
+                Label("Set Reminder", systemImage: "bell.badge")
+            }
+            .onChange(of: setReminder) { _, newValue in
+                if newValue && !notificationsAllowed {
+                    setReminder = false
+                }
+            }
+        } footer: {
+            if !notificationsAllowed {
+                Text("Enable notifications in Settings to set reminders for tasks.")
+                    .foregroundStyle(.red)
+            } else {
+                Text("Turn this on to choose a date and time and optional repeat.")
+            }
+        }
+
+        // Due Date & Time (only when reminder is ON)
+        if setReminder {
+            dueDateSection()
+            repeatSection()
+        }
+    }
+
+    @ViewBuilder
+    private func dueDateSection() -> some View {
+        Section {
+            DatePicker(
+                "Due Date",
+                selection: $newDueDate,
+                in: Date().addingTimeInterval(minimumLeadTime)...,
+                displayedComponents: [.date, .hourAndMinute]
+            )
+            .disabled(!notificationsAllowed)
+            
+            if notificationsAllowed && !isDueValid {
+                Text("Pick a time at least 3 minutes from now.")
+                    .foregroundStyle(.red)
+            }
+        } footer: {
+            if !notificationsAllowed {
+                Text("Enable notifications to set reminders for tasks.")
+                    .foregroundStyle(.red)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func repeatSection() -> some View {
+        Section {
+            Picker("Repeat", selection: $newRepeatOption) {
+                ForEach(RepeatType.allCases) { option in
+                    Text(option.title)
+                        .tag(option)
+                }
+            }
+            .disabled(!notificationsAllowed)
+        } footer: {
+            if !notificationsAllowed {
+                Text("Repeating tasks require notification permissions.")
+                    .foregroundStyle(.red)
+            } else {
+                Text("Choose how often this reminder should repeat.")
+            }
+        }
+    }
+
+    // MARK: - View Mode Sections
 
     @ViewBuilder
     private func headerSection() -> some View {
@@ -247,16 +383,11 @@ struct SingleTaskView: View {
                     )
 
                 VStack(alignment: .leading, spacing: 8) {
-                    if isEditing {
-                        TextField("Task title", text: $newTaskTitle)
-                            .font(.title3.weight(.semibold))
-                    } else {
-                        Text(task.title)
-                            .font(.title3.weight(.semibold))
-                            .foregroundStyle(task.isCompleted ? .secondary : .primary)
-                            .strikethrough(task.isCompleted, color: .secondary.opacity(0.6))
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
+                    Text(task.title)
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(task.isCompleted ? .secondary : .primary)
+                        .strikethrough(task.isCompleted, color: .secondary.opacity(0.6))
+                        .fixedSize(horizontal: false, vertical: true)
 
                     HStack(spacing: 8) {
                         Chip(text: task.categoryTitle, color: categoryColor)
@@ -287,7 +418,6 @@ struct SingleTaskView: View {
             Button {
                 showShareSheet = true
                 shareMessage = nil
-                // Reset state for a fresh search session
                 searchTask?.cancel()
                 searchTask = nil
                 searchTerm = ""
@@ -308,7 +438,77 @@ struct SingleTaskView: View {
         }
     }
 
-    // MARK: - Simplified Share
+    // MARK: - Helper Functions
+
+    private func checkNotificationPermission() {
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            DispatchQueue.main.async {
+                notificationsAllowed = settings.authorizationStatus == .authorized
+                if !notificationsAllowed {
+                    setReminder = false
+                }
+            }
+        }
+    }
+
+    private func fetchCategoriesIfNeeded() {
+        Task {
+            guard categoryStore.categories.isEmpty, let token = auth.token else { return }
+            await categoryStore.fetchCategories(token: token)
+        }
+    }
+
+    private func startEditing() {
+        newTaskTitle = task.title
+        newCategoryId = task.categoryId
+        newRepeatOption = task.repeatType ?? .none
+        
+        // If task has a due date, enable reminder and parse it
+        if let dueString = task.due,
+           let parsedDate = ISO8601DateFormatter().date(from: dueString) {
+            setReminder = true
+            newDueDate = parsedDate
+        } else {
+            setReminder = false
+            newDueDate = Date().addingTimeInterval(180)
+        }
+        
+        isEditing = true
+    }
+
+    private func saveTask() {
+        Task {
+            guard let token = auth.token else {
+                localErrorMessage = "You must be logged in."
+                showLocalErrorAlert = true
+                return
+            }
+
+            let finalDue: Date? = (setReminder && notificationsAllowed) ? newDueDate : nil
+            let finalRepeat: RepeatType? = (setReminder && notificationsAllowed) ? newRepeatOption : nil
+
+            do {
+                // ✅ Call editTask and get the updated task back
+                let updatedTask = try await taskStore.editTask(
+                    taskId: task.id,
+                    title: newTaskTitle.trimmingCharacters(in: .whitespacesAndNewlines),
+                    due: finalDue,
+                    isCompleted: nil,
+                    repeatType: finalRepeat,
+                    taskCategoryId: newCategoryId,
+                    token: token
+                )
+                
+                // ✅ Update local task with fresh data from API
+                task = updatedTask
+                isEditing = false
+            } catch {
+                // Handle error
+                localErrorMessage = error.localizedDescription
+                showLocalErrorAlert = true
+            }
+        }
+    }
 
     private func shareNow(selectedUser: TaskUserModel) {
         guard let token = auth.token else {
@@ -333,8 +533,6 @@ struct SingleTaskView: View {
             showShareAlert = true
         }
     }
-
-    // MARK: - Rows and Helpers
 
     private func detailRow(icon: String, title: String, value: String, valueColor: Color) -> some View {
         HStack(spacing: 12) {

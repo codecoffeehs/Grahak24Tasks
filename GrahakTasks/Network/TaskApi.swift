@@ -192,7 +192,7 @@ struct TaskApi {
         }
 
         var request = NetworkHelpers.authorizedRequest(url: url, token: token)
-        request.httpMethod = "PATCH"
+        request.httpMethod = "PUT"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         var body: [String: Any] = [:]
