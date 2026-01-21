@@ -218,7 +218,6 @@ struct TaskListView: View {
                 Task {
                     if let token = auth.token {
                         await taskStore.deleteTask(id: taskId, token: token)
-                        await taskStore.fetchRecentTasks(token: token)
                     }
                 }
             }

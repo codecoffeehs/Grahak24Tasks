@@ -66,14 +66,17 @@ struct LoginView: View {
                             .foregroundStyle(.secondary)
 
                         Spacer()
-
-                        Button("Forgot password?") {
-                            lightImpact()
-                            // Hook up your reset flow here
+                        NavigationLink{
+                            ForgotPasswordView()
+                        } label: {
+                            Text("Forgot password?")
+                                    .font(.footnote.weight(.semibold))
+                                    .foregroundStyle(Color.blue)
                         }
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(Color.blue)
                         .buttonStyle(.plain)
+                        .simultaneousGesture(TapGesture().onEnded {
+                            lightImpact()
+                        })
                         .disabled(auth.isLoading)
                     }
 

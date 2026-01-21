@@ -16,7 +16,7 @@ struct HomeView: View {
                     Image(systemName: "folder.fill")
                 }
 
-            // Requests (currently still using SharedView until you rename it to RequestsView)
+            // Requests
             RequestView()
                 .tabItem {
                     Image(systemName: "tray.full")
@@ -27,10 +27,6 @@ struct HomeView: View {
                 .tabItem {
                     Image(systemName: "person.fill")
                 }
-
-//            Tab(role: .search){
-//                SearchView()
-//            }
         }
         .task {
             await NotificationManager.shared.requestPermission()

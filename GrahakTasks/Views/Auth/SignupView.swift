@@ -4,6 +4,7 @@ struct SignupView: View {
     @State private var fullName = ""
     @State private var email = ""
     @State private var password = ""
+    @State private var confirmPassword = ""
     @State private var showPassword = false
     @State private var passwordTooLongAlert = false
 
@@ -15,6 +16,7 @@ struct SignupView: View {
         case fullName
         case email
         case password
+        case confirmPassword
     }
 
     // Minimal validation similar to LoginView
@@ -36,12 +38,18 @@ struct SignupView: View {
         password.count <= 12
     }
 
+    private var doPasswordsMatch: Bool {
+        password == confirmPassword
+    }
+
     private var canSubmit: Bool {
         isNameValid
         && !email.isEmpty
         && !password.isEmpty
+        && !confirmPassword.isEmpty
         && isEmailValid
         && isPasswordMinValid
+        && doPasswordsMatch
         && !auth.isLoading
     }
 
@@ -120,18 +128,8 @@ struct SignupView: View {
                         }
                         .textContentType(.newPassword)
                         .focused($focusedField, equals: .password)
-                        .submitLabel(.go)
-                        .onSubmit {
-                            if canSubmit {
-                                Task { await performSignupWithLengthCheck() }
-                            } else {
-                                warningImpact()
-                                // If user attempts submit with too-long password, show alert
-                                if !isPasswordMaxValid {
-                                    passwordTooLongAlert = true
-                                }
-                            }
-                        }
+                        .submitLabel(.next)
+                        .onSubmit { focusedField = .confirmPassword }
                         .disabled(auth.isLoading)
 
                         Button {
@@ -151,6 +149,48 @@ struct SignupView: View {
                     // Helper text: show only when user typed something but it's under 8 chars
                     if !password.isEmpty && !isPasswordMinValid {
                         Text("Password must be at least 8 characters.")
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                            .transition(.opacity)
+                    }
+                }
+
+                // Confirm Password
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Confirm password")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled(true)
+
+                    Group {
+                        if showPassword {
+                            TextField("Re-enter password", text: $confirmPassword)
+                        } else {
+                            SecureField("Re-enter password", text: $confirmPassword)
+                        }
+                    }
+                    .textContentType(.newPassword)
+                    .focused($focusedField, equals: .confirmPassword)
+                    .submitLabel(.go)
+                    .onSubmit {
+                        if canSubmit {
+                            Task { await performSignupWithLengthCheck() }
+                        } else {
+                            warningImpact()
+                            if !isPasswordMaxValid {
+                                passwordTooLongAlert = true
+                            }
+                        }
+                    }
+                    .disabled(auth.isLoading)
+
+                    Divider()
+                        .background(underlineColor(valid: confirmPassword.isEmpty || doPasswordsMatch))
+
+                    // Mismatch text (red)
+                    if !confirmPassword.isEmpty && !doPasswordsMatch {
+                        Text("Passwords do not match.")
                             .font(.footnote)
                             .foregroundStyle(.red)
                             .transition(.opacity)

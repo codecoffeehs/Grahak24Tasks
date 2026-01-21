@@ -248,13 +248,8 @@ struct SingleTaskView: View {
                         showLocalErrorAlert = true
                         return
                     }
-                    do {
-                        try await TaskApi.deleteTask(taskId: task.id, token: token)
-                        dismiss()
-                    } catch {
-                        localErrorMessage = error.localizedDescription
-                        showLocalErrorAlert = true
-                    }
+                    await taskStore.deleteTask(id: task.id, token: token)
+                    dismiss()
                 }
             }
             Button("Cancel", role: .cancel) { }
