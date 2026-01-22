@@ -10,6 +10,11 @@ struct ForgotPasswordView: View {
     @State private var didSendOtp: Bool = false
     @State private var navigateToReset: Bool = false
 
+    // Local resend cooldown state
+    @State private var canResendOtp: Bool = true
+    @State private var resendCountdown: Int = 0
+    @State private var cooldownTask: Task<Void, Never>?
+
     @FocusState private var focusedField: Field?
 
     enum Field {
@@ -93,16 +98,17 @@ struct ForgotPasswordView: View {
 
                             Spacer()
 
-                            Button("Resend") {
+                            Button(canResendOtp ? "Resend" : "Resend in \(resendCountdown)s") {
                                 lightImpact()
                                 Task { await resendOtp() }
                             }
                             .font(.footnote.weight(.semibold))
-                            .foregroundStyle(Color.blue)
+                            .foregroundStyle(canResendOtp ? Color.blue : Color.gray)
                             .buttonStyle(.plain)
-                            .disabled(auth.isLoading)
+                            .disabled(auth.isLoading || !canResendOtp)
                             .scaleEffect(auth.isLoading ? 0.98 : 1.0)
                             .animation(.spring(response: 0.3, dampingFraction: 0.8), value: auth.isLoading)
+                            .animation(.spring(response: 0.3, dampingFraction: 0.8), value: canResendOtp)
                         }
 
                         TextField("1234", text: $otp)
@@ -170,6 +176,10 @@ struct ForgotPasswordView: View {
                         otp = ""
                         focusedField = .email
                     }
+                    // cancel any running cooldown
+                    cooldownTask?.cancel()
+                    canResendOtp = true
+                    resendCountdown = 0
                 } label: {
                     Text("Change email")
                         .font(.footnote.weight(.semibold))
@@ -196,6 +206,9 @@ struct ForgotPasswordView: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
                 focusedField = .email
             }
+        }
+        .onDisappear {
+            cooldownTask?.cancel()
         }
         .alert("Error", isPresented: $auth.showErrorAlert) {
             Button("OK", role: .cancel) {}
@@ -230,13 +243,19 @@ struct ForgotPasswordView: View {
                 focusedField = .otp
             }
             successHaptic()
+            startCooldown(seconds: 15)
         }
     }
 
     private func resendOtp() async {
-        await auth.sendPasswordResetOtp(email: email.trimmingCharacters(in: .whitespacesAndNewlines))
+        guard canResendOtp, !auth.isLoading else { return }
+        await auth.resendPassword(
+            email: email.trimmingCharacters(in: .whitespacesAndNewlines),
+            otpPurpose: 1 // forgot password
+        )
         if auth.errorMessage == nil {
             successHaptic()
+            startCooldown(seconds: 15)
         }
     }
 
@@ -258,6 +277,28 @@ struct ForgotPasswordView: View {
             }
         } else {
             errorHaptic()
+        }
+    }
+
+    // MARK: - Cooldown (local)
+    private func startCooldown(seconds: Int) {
+        cooldownTask?.cancel()
+        guard seconds > 0 else {
+            canResendOtp = true
+            resendCountdown = 0
+            return
+        }
+        canResendOtp = false
+        resendCountdown = seconds
+
+        cooldownTask = Task { @MainActor in
+            while resendCountdown > 0 && !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                resendCountdown -= 1
+            }
+            if !Task.isCancelled {
+                canResendOtp = true
+            }
         }
     }
 
@@ -284,15 +325,16 @@ struct ForgotPasswordView: View {
 
     private func warningImpact() {
         #if os(iOS)
-        let generator = UIImpactFeedbackGenerator(style: .medium)
-        generator.impactOccurred()
+        let generator = UINotificationFeedbackGenerator()
+        
+//        generator.impactOccurred()
         #endif
     }
 
     private func lightImpact() {
         #if os(iOS)
-        let generator = UIImpactFeedbackGenerator(style: .light)
-        generator.impactOccurred()
+        let generator = UIImpactFeedbackGenerator()
+//        generator.impactOccurred()
         #endif
     }
 }
@@ -303,4 +345,3 @@ struct ForgotPasswordView: View {
             .environmentObject(AuthStore())
     }
 }
-

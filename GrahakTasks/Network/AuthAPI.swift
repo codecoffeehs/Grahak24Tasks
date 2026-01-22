@@ -258,4 +258,47 @@ struct AuthAPI {
             }
         }
     }
+    
+    // MARK: - RESEND OTP
+    static func resendOtp(email:String,otpPurpose:Int) async throws{
+        // 1. URL
+        guard let url = URL(string: "\(baseURL)/resend-otp") else {
+            throw ApiError(message: "Invalid URL")
+        }
+
+        // 2. Request
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        // 3. Body
+//        let body: [String: Any] = [
+//            "email": email,
+//            "otpPurpose": otpPurpose
+//        ]
+        let body = ResendOtpRequest(
+            email: email,
+            otpPurpose: otpPurpose
+        )
+        request.httpBody = try JSONEncoder().encode(body)
+
+        // 4. Network call
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        // 5. Validate response
+        guard let http = response as? HTTPURLResponse else {
+            throw ApiError(message: "Invalid server response")
+        }
+
+        // 6. Handle status codes
+        if http.statusCode == 200 {
+            return
+        } else {
+            if let apiError = try? JSONDecoder().decode(ApiErrorResponse.self, from: data) {
+                throw ApiError(message: apiError.message)
+            } else {
+                throw ApiError(message: "Something went wrong. Please try again.")
+            }
+        }
+    }
 }

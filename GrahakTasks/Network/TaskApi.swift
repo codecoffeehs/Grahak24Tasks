@@ -360,4 +360,6 @@ struct TaskApi {
         let raw = String(data: data, encoding: .utf8) ?? "Failed to fetch category tasks"
         throw ApiError(message: raw)
     }
+    
+    
 }

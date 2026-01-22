@@ -16,6 +16,11 @@ struct SignupConfirmView: View {
     @State private var d3: String = ""
     @State private var d4: String = ""
 
+    // Local resend cooldown state
+    @State private var canResendOtp: Bool = true
+    @State private var resendCountdown: Int = 0
+    @State private var cooldownTask: Task<Void, Never>?
+
     enum Field: Hashable {
         case d1, d2, d3, d4
     }
@@ -60,6 +65,28 @@ struct SignupConfirmView: View {
                 await performVerify()
             }
 
+            // Resend row
+            HStack {
+                Text("Didn’t receive the code?")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 8)
+                Button(canResendOtp ? "Resend" : "Resend in \(resendCountdown)s") {
+                    #if os(iOS)
+                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                    #endif
+                    Task {
+                        await resendSignupOtp()
+                    }
+                }
+                .font(.footnote.weight(.semibold))
+                .buttonStyle(.plain)
+                .foregroundStyle(canResendOtp ? Color.blue : Color.gray)
+                .disabled(auth.isLoading || !canResendOtp)
+                .animation(.spring(response: 0.3, dampingFraction: 0.8), value: auth.isLoading)
+                .animation(.spring(response: 0.3, dampingFraction: 0.8), value: canResendOtp)
+            }
+            .padding(.top, 2)
 
             // Change email
             Button {
@@ -84,6 +111,11 @@ struct SignupConfirmView: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                 focusedField = .d1
             }
+            // Start an initial cooldown assuming OTP was just sent during signup
+            startCooldown(seconds: 15)
+        }
+        .onDisappear {
+            cooldownTask?.cancel()
         }
         .navigationBarTitleDisplayMode(.inline)
         .alert("Error", isPresented: $auth.showErrorAlert) {
@@ -100,9 +132,38 @@ struct SignupConfirmView: View {
     // MARK: - Verify
     private func performVerify() async {
         guard canVerify else { return }
-        do {
-            await auth.verify(email: email, otp: otp)
-            // If verify failed, AuthStore sets errorMessage/showErrorAlert. We clear on alert dismiss.
+        await auth.verify(email: email, otp: otp)
+        // If verify failed, AuthStore sets errorMessage/showErrorAlert. We clear on alert dismiss.
+    }
+
+    // MARK: - Resend (signup, otpPurpose = 0)
+    private func resendSignupOtp() async {
+        guard canResendOtp, !auth.isLoading else { return }
+        await auth.resendSignupOtp(email: email)
+        if auth.errorMessage == nil {
+            startCooldown(seconds: 15)
+        }
+    }
+
+    // MARK: - Cooldown (local)
+    private func startCooldown(seconds: Int) {
+        cooldownTask?.cancel()
+        guard seconds > 0 else {
+            canResendOtp = true
+            resendCountdown = 0
+            return
+        }
+        canResendOtp = false
+        resendCountdown = seconds
+
+        cooldownTask = Task { @MainActor in
+            while resendCountdown > 0 && !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                resendCountdown -= 1
+            }
+            if !Task.isCancelled {
+                canResendOtp = true
+            }
         }
     }
 
