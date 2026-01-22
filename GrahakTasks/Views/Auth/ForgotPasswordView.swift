@@ -1,11 +1,14 @@
 import SwiftUI
 
 struct ForgotPasswordView: View {
+    @Environment(\.dismiss) var dismiss
+    @EnvironmentObject private var auth: AuthStore
+
     @State private var email: String = ""
     @State private var otp: String = ""
 
     @State private var didSendOtp: Bool = false
-    @State private var isLoading: Bool = false
+    @State private var navigateToReset: Bool = false
 
     @FocusState private var focusedField: Field?
 
@@ -21,27 +24,30 @@ struct ForgotPasswordView: View {
     }
 
     private var canSendOtp: Bool {
-        isEmailValid && !isLoading
+        isEmailValid && !auth.isLoading
     }
 
     private var canVerifyOtp: Bool {
-        didSendOtp && otp.count == 4 && !isLoading
+        didSendOtp && otp.count == 4 && !auth.isLoading
     }
 
     var body: some View {
         VStack(spacing: 24) {
-            Spacer()
+            Spacer(minLength: 12)
 
             // Header
             VStack(alignment: .leading, spacing: 6) {
                 Text("Forgot password")
                     .font(.largeTitle.bold())
+                    .scaleEffect(didSendOtp ? 1.0 : 1.02)
+                    .animation(.interactiveSpring(response: 0.5, dampingFraction: 0.8, blendDuration: 0.6), value: didSendOtp)
 
                 Text(didSendOtp
                      ? "Enter the 4-digit code sent to your email"
                      : "We’ll send you a 4-digit OTP to reset your password")
                     .font(.callout)
                     .foregroundStyle(.secondary)
+                    .transition(.opacity)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -64,14 +70,18 @@ struct ForgotPasswordView: View {
                             if didSendOtp {
                                 focusedField = .otp
                             } else {
-                                sendOtp()
+                                Task { await sendOtp() }
                             }
                         }
-                        .disabled(isLoading || didSendOtp) // lock email after OTP sent
+                        .disabled(auth.isLoading || didSendOtp) // lock email after OTP sent
 
                     Divider()
                         .background(underlineColor(valid: isEmailValid || email.isEmpty))
                 }
+                .transition(.asymmetric(
+                    insertion: .scale(scale: 0.98).combined(with: .opacity).animation(.spring(response: 0.35, dampingFraction: 0.85)),
+                    removal: .opacity.animation(.easeOut(duration: 0.18))
+                ))
 
                 // OTP (appears after sending)
                 if didSendOtp {
@@ -85,12 +95,14 @@ struct ForgotPasswordView: View {
 
                             Button("Resend") {
                                 lightImpact()
-                                resendOtp()
+                                Task { await resendOtp() }
                             }
                             .font(.footnote.weight(.semibold))
                             .foregroundStyle(Color.blue)
                             .buttonStyle(.plain)
-                            .disabled(isLoading)
+                            .disabled(auth.isLoading)
+                            .scaleEffect(auth.isLoading ? 0.98 : 1.0)
+                            .animation(.spring(response: 0.3, dampingFraction: 0.8), value: auth.isLoading)
                         }
 
                         TextField("1234", text: $otp)
@@ -106,55 +118,73 @@ struct ForgotPasswordView: View {
                                     .map(String.init)
                                     .joined()
 
-                                // auto verify when full
+                                // light haptic when full
                                 if otp.count == 4 {
                                     lightImpact()
                                 }
                             }
-                            .disabled(isLoading)
+                            .disabled(auth.isLoading)
 
                         Divider()
                             .background(underlineColor(valid: otp.isEmpty || otp.count == 4))
                     }
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    // Bouncy entrance for OTP block
+                    .transition(
+                        .asymmetric(
+                            insertion: .move(edge: .top)
+                                .combined(with: .opacity)
+                                .combined(with: .scale(scale: 0.98))
+                                .animation(.interactiveSpring(response: 0.5, dampingFraction: 0.8, blendDuration: 0.6)),
+                            removal: .opacity.animation(.easeOut(duration: 0.2))
+                        )
+                    )
                 }
             }
-            .animation(.easeInOut(duration: 0.2), value: didSendOtp)
+            // Make the overall state change feel bouncy
+            .animation(.interactiveSpring(response: 0.5, dampingFraction: 0.85, blendDuration: 0.6), value: didSendOtp)
 
             // Primary Button
             PrimaryActionButton(
-                title: isLoading
+                title: auth.isLoading
                     ? "Please wait…"
                     : (didSendOtp ? "Verify OTP" : "Send OTP"),
-                isLoading: isLoading,
+                isLoading: auth.isLoading,
                 isDisabled: didSendOtp ? !canVerifyOtp : !canSendOtp
             ) {
                 if didSendOtp {
-                    verifyOtp()
+                    await verifyOtp()
                 } else {
-                    sendOtp()
+                    await sendOtp()
                 }
             }
+            .scaleEffect(auth.isLoading ? 0.98 : 1.0)
+            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: auth.isLoading)
 
             // Secondary action
             if didSendOtp {
                 Button {
                     lightImpact()
                     // allow editing email again
-                    didSendOtp = false
-                    otp = ""
-                    focusedField = .email
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                        didSendOtp = false
+                        otp = ""
+                        focusedField = .email
+                    }
                 } label: {
                     Text("Change email")
                         .font(.footnote.weight(.semibold))
                         .foregroundStyle(Color.blue)
                 }
                 .buttonStyle(.plain)
-                .disabled(isLoading)
+                .disabled(auth.isLoading)
             } else {
-                Text("Remembered it? Go back and sign in.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                Button{
+                    dismiss()
+                }label: {
+                    Text("Remembered it? Go back and sign in.")
+                        .font(.footnote)
+                        .foregroundStyle(.blue)
+                }
             }
 
             Spacer(minLength: 40)
@@ -167,63 +197,73 @@ struct ForgotPasswordView: View {
                 focusedField = .email
             }
         }
+        .alert("Error", isPresented: $auth.showErrorAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(auth.errorMessage ?? "Something went wrong")
+        }
+        // Modern navigation API: present destination when navigateToReset is true
+        .navigationDestination(isPresented: $navigateToReset) {
+            ResetPasswordView(
+                email: email.trimmingCharacters(in: .whitespacesAndNewlines),
+                otp: otp
+            )
+            .environmentObject(auth)
+        }
     }
 
-    // MARK: - Dummy flows
+    // MARK: - Flows
 
-    private func sendOtp() {
+    private func sendOtp() async {
         guard canSendOtp else {
             warningImpact()
             return
         }
 
         lightImpact()
-        isLoading = true
+        await auth.sendPasswordResetOtp(email: email.trimmingCharacters(in: .whitespacesAndNewlines))
 
-        // dummy network delay
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-            isLoading = false
-            didSendOtp = true
-            focusedField = .otp
+        // If no error, consider OTP sent
+        if auth.errorMessage == nil {
+            withAnimation(.interactiveSpring(response: 0.5, dampingFraction: 0.85, blendDuration: 0.6)) {
+                didSendOtp = true
+                focusedField = .otp
+            }
             successHaptic()
         }
     }
 
-    private func resendOtp() {
-        lightImpact()
-        isLoading = true
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-            isLoading = false
+    private func resendOtp() async {
+        await auth.sendPasswordResetOtp(email: email.trimmingCharacters(in: .whitespacesAndNewlines))
+        if auth.errorMessage == nil {
             successHaptic()
         }
     }
 
-    private func verifyOtp() {
+    private func verifyOtp() async {
         guard canVerifyOtp else {
             warningImpact()
             return
         }
 
-        isLoading = true
+        await auth.confirmPasswordresetOtp(
+            email: email.trimmingCharacters(in: .whitespacesAndNewlines),
+            otp: otp
+        )
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-            isLoading = false
-
-            // dummy check
-            if otp == "1234" {
-                successHaptic()
-                // TODO: Navigate to ResetPasswordView later
-            } else {
-                otp = ""
-                errorHaptic()
+        if auth.errorMessage == nil {
+            successHaptic()
+            withAnimation(.interactiveSpring(response: 0.5, dampingFraction: 0.85, blendDuration: 0.6)) {
+                navigateToReset = true
             }
+        } else {
+            errorHaptic()
         }
     }
 
     // MARK: - Underline color
     private func underlineColor(valid: Bool) -> Color {
-        if isLoading { return Color.gray.opacity(0.3) }
+        if auth.isLoading { return Color.gray.opacity(0.3) }
         return valid ? Color.secondary.opacity(0.25) : Color.red.opacity(0.6)
     }
 
@@ -260,5 +300,7 @@ struct ForgotPasswordView: View {
 #Preview {
     NavigationStack {
         ForgotPasswordView()
+            .environmentObject(AuthStore())
     }
 }
+

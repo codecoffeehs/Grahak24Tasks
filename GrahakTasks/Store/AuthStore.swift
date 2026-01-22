@@ -120,4 +120,60 @@ class AuthStore: ObservableObject {
         KeychainService.delete(key: tokenKey)
         KeychainService.delete(key: "fullName")
     }
+    
+    // MARK: - Send Password Reset OTP
+    func sendPasswordResetOtp(email:String) async {
+        isLoading = true
+        errorMessage = nil
+        
+        do{
+            _ = try await AuthAPI.sendPasswordresetOtp(email: email)
+        }catch {
+            errorMessage = error.localizedDescription
+            showErrorAlert = true
+        }
+
+        isLoading = false
+    }
+    
+    // MARK: - Confirm Password Reset OTP
+    func confirmPasswordresetOtp(email:String, otp:String) async {
+        isLoading = true
+        errorMessage = nil
+        
+        do{
+            _ = try await AuthAPI.confirmPasswordResetOtp(email: email, otp: otp)
+        }catch {
+            errorMessage = error.localizedDescription
+            showErrorAlert = true
+        }
+
+        isLoading = false
+    }
+    
+    // MARK: - Reset Password (final step)
+    func resetPassword(email:String, otp:String, newPassword:String) async {
+        isLoading = true
+        errorMessage = nil
+
+        do {
+            let response = try await AuthAPI.resetPassword(email: email, otp: otp, newPassword: newPassword)
+
+            // Persist token and user info
+            token = response.token
+            KeychainService.save(key: tokenKey, value: response.token)
+            KeychainService.save(key: "fullName", value: response.userResponse.fullName)
+
+            withAnimation {
+                isAuthenticated = true
+            }
+
+        } catch {
+            errorMessage = error.localizedDescription
+            showErrorAlert = true
+        }
+
+        isLoading = false
+    }
 }
+

@@ -138,4 +138,124 @@ struct AuthAPI {
             }
         }
     }
+    
+    // MARK: - SEND PASSWORD RESET OTP
+    static func sendPasswordresetOtp(email:String) async throws{
+        // 1. URL
+        guard let url = URL(string: "\(baseURL)/send-reset-otp") else {
+            throw ApiError(message: "Invalid URL")
+        }
+
+        // 2. Request
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        // 3. Body
+        let body: [String: String] = [
+            "email": email
+        ]
+
+        request.httpBody = try JSONEncoder().encode(body)
+
+        // 4. Network call
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        // 5. Validate response
+        guard let http = response as? HTTPURLResponse else {
+            throw ApiError(message: "Invalid server response")
+        }
+
+        // 6. Handle status codes
+        if http.statusCode == 200 {
+            return
+        } else {
+            if let apiError = try? JSONDecoder().decode(ApiErrorResponse.self, from: data) {
+                throw ApiError(message: apiError.message)
+            } else {
+                throw ApiError(message: "Something went wrong. Please try again.")
+            }
+        }
+    }
+    
+    // MARK: - CONFIRM PASSWORD RESET OTP
+    static func confirmPasswordResetOtp(email:String,otp:String) async throws {
+        // 1. URL
+        guard let url = URL(string: "\(baseURL)/confirm-reset-otp") else {
+            throw ApiError(message: "Invalid URL")
+        }
+
+        // 2. Request
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        // 3. Body
+        let body: [String: String] = [
+            "email": email,
+            "otp": otp
+        ]
+
+        request.httpBody = try JSONEncoder().encode(body)
+
+        // 4. Network call
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        // 5. Validate response
+        guard let http = response as? HTTPURLResponse else {
+            throw ApiError(message: "Invalid server response")
+        }
+
+        // 6. Handle status codes
+        if http.statusCode == 200 {
+            return
+        } else {
+            if let apiError = try? JSONDecoder().decode(ApiErrorResponse.self, from: data) {
+                throw ApiError(message: apiError.message)
+            } else {
+                throw ApiError(message: "Something went wrong. Please try again.")
+            }
+        }
+    }
+    
+    // MARK: - RESET PASSWORD
+    static func resetPassword(email:String,otp:String,newPassword:String) async throws -> AuthResponse{
+        // 1. URL
+        guard let url = URL(string: "\(baseURL)/reset") else {
+            throw ApiError(message: "Invalid URL")
+        }
+
+        // 2. Request
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        // 3. Body
+        let body: [String: String] = [
+            "email": email,
+            "otp": otp,
+            "newPassword":newPassword
+        ]
+
+        request.httpBody = try JSONEncoder().encode(body)
+
+        // 4. Network call
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        // 5. Validate response
+        guard let http = response as? HTTPURLResponse else {
+            throw ApiError(message: "Invalid server response")
+        }
+
+        // 6. Handle status codes
+        if http.statusCode == 200 {
+            return try JSONDecoder().decode(AuthResponse.self, from: data)
+        } else {
+            if let apiError = try? JSONDecoder().decode(ApiErrorResponse.self, from: data) {
+                throw ApiError(message: apiError.message)
+            } else {
+                throw ApiError(message: "Something went wrong. Please try again.")
+            }
+        }
+    }
 }

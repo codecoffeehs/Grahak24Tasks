@@ -52,17 +52,14 @@ struct SignupConfirmView: View {
             .padding(.top, 8)
 
             // Verify button
-            Button {
-                Task { await performVerify() }
-            } label: {
-                Text("Verify")
-                    .fontWeight(.semibold)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 44)
+            PrimaryActionButton(
+                title: auth.isLoading ? "Verifying" : "Verify",
+                isLoading: auth.isLoading,
+                isDisabled: !canVerify
+            ) {
+                await performVerify()
             }
-            .buttonStyle(.borderedProminent)
-            .tint(Color.orange)
-            .disabled(!canVerify)
+
 
             // Change email
             Button {

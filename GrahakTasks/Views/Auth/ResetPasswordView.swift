@@ -1,16 +1,20 @@
 import SwiftUI
 
 struct ResetPasswordView: View {
+    let email: String
+    let otp: String
+
     @State private var newPassword: String = ""
     @State private var confirmPassword: String = ""
 
     @State private var showNewPassword: Bool = false
     @State private var showConfirmPassword: Bool = false
 
-    @State private var isLoading: Bool = false
     @State private var showSuccessAlert: Bool = false
 
     @FocusState private var focusedField: Field?
+    @EnvironmentObject private var auth: AuthStore
+    @Environment(\.dismiss) private var dismiss
 
     enum Field {
         case newPassword
@@ -20,9 +24,9 @@ struct ResetPasswordView: View {
     private var canSubmit: Bool {
         !newPassword.isEmpty &&
         !confirmPassword.isEmpty &&
-        newPassword.count >= 6 &&
+        newPassword.count >= 8 &&
         newPassword == confirmPassword &&
-        !isLoading
+        !auth.isLoading
     }
 
     var body: some View {
@@ -34,9 +38,11 @@ struct ResetPasswordView: View {
                 Text("Reset password")
                     .font(.largeTitle.bold())
 
-                Text("Create a new password for your account")
+                Text("Create a new password for \(email)")
                     .font(.callout)
                     .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.9)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -60,7 +66,7 @@ struct ResetPasswordView: View {
                         .focused($focusedField, equals: .newPassword)
                         .submitLabel(.next)
                         .onSubmit { focusedField = .confirmPassword }
-                        .disabled(isLoading)
+                        .disabled(auth.isLoading)
 
                         Button {
                             showNewPassword.toggle()
@@ -74,7 +80,7 @@ struct ResetPasswordView: View {
                     }
 
                     Divider()
-                        .background(underlineColor(valid: newPassword.isEmpty || newPassword.count >= 6))
+                        .background(underlineColor(valid: newPassword.isEmpty || newPassword.count >= 8))
                 }
 
                 // Confirm password
@@ -101,7 +107,7 @@ struct ResetPasswordView: View {
                                 warningImpact()
                             }
                         }
-                        .disabled(isLoading)
+                        .disabled(auth.isLoading)
 
                         Button {
                             showConfirmPassword.toggle()
@@ -134,8 +140,8 @@ struct ResetPasswordView: View {
 
             // Primary Button
             PrimaryActionButton(
-                title: isLoading ? "Updating…" : "Update Password",
-                isLoading: isLoading,
+                title: auth.isLoading ? "Updating…" : "Update Password",
+                isLoading: auth.isLoading,
                 isDisabled: !canSubmit
             ) {
                 await resetPassword()
@@ -152,13 +158,20 @@ struct ResetPasswordView: View {
             }
         }
         .alert("Success", isPresented: $showSuccessAlert) {
+            Button("OK", role: .cancel) {
+                dismiss()
+            }
+        } message: {
+            Text("Your password was updated. You’re now signed in.")
+        }
+        .alert("Error", isPresented: $auth.showErrorAlert) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text("Your password was updated.")
+            Text(auth.errorMessage ?? "Couldn't reset password")
         }
     }
 
-    // MARK: - Dummy reset logic
+    // MARK: - Reset logic
     private func resetPassword() async {
         guard canSubmit else {
             warningImpact()
@@ -166,19 +179,21 @@ struct ResetPasswordView: View {
         }
 
         lightImpact()
-        isLoading = true
+        await auth.resetPassword(
+            email: email,
+            otp: otp,
+            newPassword: newPassword
+        )
 
-        // Dummy delay
-        try? await Task.sleep(nanoseconds: 800_000_000)
-
-        isLoading = false
-        successHaptic()
-        showSuccessAlert = true
+        if auth.errorMessage == nil {
+            successHaptic()
+            showSuccessAlert = true
+        }
     }
 
     // MARK: - Underline color logic (same style)
     private func underlineColor(valid: Bool) -> Color {
-        if isLoading { return Color.gray.opacity(0.3) }
+        if auth.isLoading { return Color.gray.opacity(0.3) }
         return valid ? Color.secondary.opacity(0.25) : Color.red.opacity(0.6)
     }
 
@@ -207,6 +222,8 @@ struct ResetPasswordView: View {
 
 #Preview {
     NavigationStack {
-        ResetPasswordView()
+        ResetPasswordView(email: "you@example.com", otp: "1234")
+            .environmentObject(AuthStore())
     }
 }
+
