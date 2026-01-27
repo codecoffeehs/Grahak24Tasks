@@ -27,6 +27,7 @@ struct CollabApi{
         guard let http = response as? HTTPURLResponse else {
             throw ApiError(message: "Invalid server response")
         }
+        NetworkHelpers.handleUnauthorizedIfNeeded(http)
 
         if (200...299).contains(http.statusCode) {
             return try JSONDecoder().decode([TaskUserModel].self, from: data)
@@ -53,6 +54,7 @@ struct CollabApi{
         guard let http = response as? HTTPURLResponse else {
             throw ApiError(message: "Invalid server response")
         }
+        NetworkHelpers.handleUnauthorizedIfNeeded(http)
 
         if (200...299).contains(http.statusCode) {
             return try JSONDecoder().decode([SharedTaskModel].self, from: data)
@@ -79,6 +81,7 @@ struct CollabApi{
         guard let http = response as? HTTPURLResponse else {
             throw ApiError(message: "Invalid server response")
         }
+        NetworkHelpers.handleUnauthorizedIfNeeded(http)
 
         if (200...299).contains(http.statusCode) {
             return try JSONDecoder().decode([SharedTaskModel].self, from: data)
@@ -112,6 +115,7 @@ struct CollabApi{
         guard let http = response as? HTTPURLResponse else {
             throw ApiError(message: "Invalid server response")
         }
+        NetworkHelpers.handleUnauthorizedIfNeeded(http)
 
         if (200...299).contains(http.statusCode) {
             return
@@ -140,6 +144,7 @@ struct CollabApi{
         guard let http = response as? HTTPURLResponse else {
             throw ApiError(message: "Invalid server response")
         }
+        NetworkHelpers.handleUnauthorizedIfNeeded(http)
 
         // ✅ Success
         if (200...299).contains(http.statusCode) {
@@ -195,6 +200,7 @@ struct CollabApi{
         guard let http = response as? HTTPURLResponse else {
             throw ApiError(message: "Invalid server response")
         }
+        NetworkHelpers.handleUnauthorizedIfNeeded(http)
 
         if (200...299).contains(http.statusCode) {
             return try JSONDecoder().decode(TaskModel.self, from: data)
@@ -207,4 +213,34 @@ struct CollabApi{
         let raw = String(data: data, encoding: .utf8) ?? "Failed to create task"
         throw ApiError(message: raw)
     }
+    
+    static func rejectInvite(inviteId:String,token:String) async throws{
+        guard let url = URL(string: "\(baseURLTwo)/reject/\(inviteId)") else {
+            throw ApiError(message: "Invalid URL")
+        }
+
+        var request = NetworkHelpers.authorizedRequest(url: url, token: token)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let http = response as? HTTPURLResponse else {
+            throw ApiError(message: "Invalid server response")
+        }
+        NetworkHelpers.handleUnauthorizedIfNeeded(http)
+
+        if (200...299).contains(http.statusCode) {
+            return
+        }
+
+        if let backendError = try? JSONDecoder().decode(ApiErrorResponse.self, from: data) {
+            throw ApiError(message: backendError.message)
+        }
+
+        let rawMessage = String(data: data, encoding: .utf8) ?? "Failed to reject invite"
+        throw ApiError(message: rawMessage)
+
+    }
 }
+

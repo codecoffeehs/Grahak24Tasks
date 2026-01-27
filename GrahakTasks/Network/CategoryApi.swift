@@ -19,6 +19,7 @@ struct CategoryApi {
         guard let http = response as? HTTPURLResponse else {
             throw ApiError(message: "Invalid server response")
         }
+        NetworkHelpers.handleUnauthorizedIfNeeded(http)
 
         // ✅ Success
         if (200...299).contains(http.statusCode) {
@@ -63,6 +64,7 @@ struct CategoryApi {
         guard let http = response as? HTTPURLResponse else {
             throw ApiError(message: "Invalid server response")
         }
+        NetworkHelpers.handleUnauthorizedIfNeeded(http)
 
         // ✅ Success
         if (200...299).contains(http.statusCode) {
@@ -93,6 +95,7 @@ struct CategoryApi {
         guard let http = response as? HTTPURLResponse else {
             throw ApiError(message: "Invalid server response")
         }
+        NetworkHelpers.handleUnauthorizedIfNeeded(http)
 
         // ✅ Success
         if (200...299).contains(http.statusCode) {
@@ -108,3 +111,4 @@ struct CategoryApi {
         throw ApiError(message: rawMessage)
     }
 }
+

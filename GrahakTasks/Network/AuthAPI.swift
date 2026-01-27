@@ -35,6 +35,7 @@ struct AuthAPI {
         guard let http = response as? HTTPURLResponse else {
             throw ApiError(message: "Invalid server response")
         }
+        NetworkHelpers.handleUnauthorizedIfNeeded(http)
 
         // 6. Handle status codes
         if http.statusCode == 200 {
@@ -81,6 +82,7 @@ struct AuthAPI {
         guard let http = response as? HTTPURLResponse else {
             throw ApiError(message: "Invalid server response")
         }
+        NetworkHelpers.handleUnauthorizedIfNeeded(http)
 
         // 6. Handle status codes (no body expected)
         if (200...299).contains(http.statusCode) {
@@ -126,6 +128,7 @@ struct AuthAPI {
         guard let http = response as? HTTPURLResponse else {
             throw ApiError(message: "Invalid server response")
         }
+        NetworkHelpers.handleUnauthorizedIfNeeded(http)
 
         // 6. Handle status codes
         if http.statusCode == 200 {
@@ -165,6 +168,7 @@ struct AuthAPI {
         guard let http = response as? HTTPURLResponse else {
             throw ApiError(message: "Invalid server response")
         }
+        NetworkHelpers.handleUnauthorizedIfNeeded(http)
 
         // 6. Handle status codes
         if http.statusCode == 200 {
@@ -205,6 +209,7 @@ struct AuthAPI {
         guard let http = response as? HTTPURLResponse else {
             throw ApiError(message: "Invalid server response")
         }
+        NetworkHelpers.handleUnauthorizedIfNeeded(http)
 
         // 6. Handle status codes
         if http.statusCode == 200 {
@@ -246,6 +251,7 @@ struct AuthAPI {
         guard let http = response as? HTTPURLResponse else {
             throw ApiError(message: "Invalid server response")
         }
+        NetworkHelpers.handleUnauthorizedIfNeeded(http)
 
         // 6. Handle status codes
         if http.statusCode == 200 {
@@ -272,10 +278,6 @@ struct AuthAPI {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         // 3. Body
-//        let body: [String: Any] = [
-//            "email": email,
-//            "otpPurpose": otpPurpose
-//        ]
         let body = ResendOtpRequest(
             email: email,
             otpPurpose: otpPurpose
@@ -289,6 +291,7 @@ struct AuthAPI {
         guard let http = response as? HTTPURLResponse else {
             throw ApiError(message: "Invalid server response")
         }
+        NetworkHelpers.handleUnauthorizedIfNeeded(http)
 
         // 6. Handle status codes
         if http.statusCode == 200 {
@@ -302,3 +305,4 @@ struct AuthAPI {
         }
     }
 }
+

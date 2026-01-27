@@ -8,28 +8,26 @@
 import SwiftUI
 
 struct ContentView: View {
-    @EnvironmentObject var auth:AuthStore
-    @EnvironmentObject var task:TaskStore
-    @EnvironmentObject var category:CategoryStore
+    @EnvironmentObject var auth: AuthStore
+    @EnvironmentObject var task: TaskStore
+    @EnvironmentObject var category: CategoryStore
+
     var body: some View {
-        if auth.isAuthenticated{
+        if auth.isAuthenticated {
             HomeView()
                 .transition(.move(edge: .trailing))
-        }else{
-            NavigationStack{
+        } else {
+            NavigationStack {
                 LoginView()
                     .transition(.move(edge: .leading))
-                
             }
         }
-        
     }
 }
 
 #Preview {
     ContentView()
-        .environmentObject(AuthStore())
+        .environmentObject(AuthStore.shared)   // Use the singleton so preview reflects the same instance
         .environmentObject(TaskStore())
         .environmentObject(CategoryStore())
-    
 }

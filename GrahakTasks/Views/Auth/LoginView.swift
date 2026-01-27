@@ -84,8 +84,12 @@ struct LoginView: View {
                         Group {
                             if showPassword {
                                 TextField("Your password", text: $password)
+                                    .textInputAutocapitalization(.never)
+                                    .autocorrectionDisabled(true)
                             } else {
                                 SecureField("Your password", text: $password)
+                                    .textInputAutocapitalization(.never)
+                                    .autocorrectionDisabled(true)
                             }
                         }
                         .textContentType(.password)

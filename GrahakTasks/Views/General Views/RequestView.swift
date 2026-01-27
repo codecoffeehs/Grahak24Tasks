@@ -214,8 +214,23 @@ struct RequestView: View {
     }
 
     private func handleReject(_ request: TaskRequests) {
-        alertMessage = "Reject tapped for “\(request.title)”"
-        showAlert = true
+        Task {
+            guard let token = auth.token else {
+                alertMessage = "You must be logged in."
+                showAlert = true
+                return
+            }
+            // Call store to reject, then refresh list
+            await collabStore.rejectInvite(token: token, inviteId: request.id)
+
+            if let err = collabStore.errorMessage {
+                alertMessage = err
+                showAlert = true
+            } else {
+                alertMessage = "Request rejected."
+                showAlert = true
+            }
+        }
     }
 
     @MainActor

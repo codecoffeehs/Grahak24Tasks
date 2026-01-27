@@ -5,6 +5,9 @@ import Combine
 @MainActor
 class AuthStore: ObservableObject {
 
+    // MARK: - Singleton
+    static let shared = AuthStore()
+
     // MARK: - Auth State
     @Published var isAuthenticated: Bool = false
     @Published var token: String?
@@ -199,3 +202,4 @@ class AuthStore: ObservableObject {
         await resendPassword(email: email, otpPurpose: 1)
     }
 }
+

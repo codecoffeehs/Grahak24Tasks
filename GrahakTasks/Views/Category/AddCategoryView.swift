@@ -8,7 +8,7 @@ struct AddCategoryView: View {
 
     // MARK: - State
     // Default title set to "Others"
-    @State private var title: String = "Others"
+    @State private var title: String = ""
     @State private var selectedColor: CategoryColorOption = categoryColors[1] // default blue
     @State private var selectedIcon: String = "folder"
 

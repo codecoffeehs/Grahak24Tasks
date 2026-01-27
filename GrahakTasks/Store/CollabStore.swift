@@ -124,5 +124,37 @@ class CollabStore : ObservableObject{
             categoryId: categoryId
         )
     }
+    
+    // MARK: - Reject Invite (refetch strategy)
+    func rejectInvite(token: String, inviteId: String) async {
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+        
+        do {
+            try await CollabApi.rejectInvite(inviteId: inviteId, token: token)
+            // Refresh requests after rejecting
+            let refreshed = try await CollabApi.fetchTaskRequests(token: token)
+            taskRequests = refreshed
+        } catch {
+            errorMessage = error.localizedDescription
+            showErrorAlert = true
+        }
+    }
+    
+    // MARK: - Reject Invite (optimistic update strategy)
+    func rejectInviteLocally(token: String, inviteId: String) async {
+        // Optimistically remove from local list
+        let previous = taskRequests
+        taskRequests.removeAll { $0.id == inviteId }
+        
+        do {
+            try await CollabApi.rejectInvite(inviteId: inviteId, token: token)
+        } catch {
+            // Rollback on failure and surface error
+            taskRequests = previous
+            errorMessage = error.localizedDescription
+            showErrorAlert = true
+        }
+    }
 }
-

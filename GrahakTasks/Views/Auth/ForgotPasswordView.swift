@@ -325,16 +325,15 @@ struct ForgotPasswordView: View {
 
     private func warningImpact() {
         #if os(iOS)
-        let generator = UINotificationFeedbackGenerator()
-        
-//        generator.impactOccurred()
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
         #endif
     }
 
     private func lightImpact() {
         #if os(iOS)
-        let generator = UIImpactFeedbackGenerator()
-//        generator.impactOccurred()
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.impactOccurred()
         #endif
     }
 }

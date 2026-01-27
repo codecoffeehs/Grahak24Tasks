@@ -18,6 +18,7 @@ struct TaskApi {
         guard let http = response as? HTTPURLResponse else {
             throw ApiError(message: "Invalid server response")
         }
+        NetworkHelpers.handleUnauthorizedIfNeeded(http)
 
         if (200...299).contains(http.statusCode) {
             return try JSONDecoder().decode(RecentTasksResponse.self, from: data)
@@ -46,6 +47,7 @@ struct TaskApi {
         guard let http = response as? HTTPURLResponse else {
             throw ApiError(message: "Invalid server response")
         }
+        NetworkHelpers.handleUnauthorizedIfNeeded(http)
 
         if (200...299).contains(http.statusCode) {
             return try JSONDecoder().decode([TaskModel].self, from: data)
@@ -86,16 +88,10 @@ struct TaskApi {
         if let due {
             body["due"] = ISO8601DateFormatter().string(from: due)
         }
-            // else {
-//            body["due"] = NSNull()
-//        }
 
         if let repeatType {
             body["repeat"] = repeatType.rawValue
       }
-//            else {
-//            body["repeat"] = NSNull()
-//        }
 
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
@@ -104,6 +100,7 @@ struct TaskApi {
         guard let http = response as? HTTPURLResponse else {
             throw ApiError(message: "Invalid server response")
         }
+        NetworkHelpers.handleUnauthorizedIfNeeded(http)
 
         if (200...299).contains(http.statusCode) {
             return try JSONDecoder().decode(TaskModel.self, from: data)
@@ -133,6 +130,7 @@ struct TaskApi {
         guard let http = response as? HTTPURLResponse else {
             throw ApiError(message: "Invalid server response")
         }
+        NetworkHelpers.handleUnauthorizedIfNeeded(http)
 
         if (200...299).contains(http.statusCode) {
             return try JSONDecoder().decode(TaskModel.self, from: data)
@@ -162,6 +160,7 @@ struct TaskApi {
         guard let http = response as? HTTPURLResponse else {
             throw ApiError(message: "Invalid server response")
         }
+        NetworkHelpers.handleUnauthorizedIfNeeded(http)
 
         if (200...299).contains(http.statusCode) {
             return
@@ -210,6 +209,7 @@ struct TaskApi {
         guard let http = response as? HTTPURLResponse else {
             throw ApiError(message: "Invalid server response")
         }
+        NetworkHelpers.handleUnauthorizedIfNeeded(http)
 
         if (200...299).contains(http.statusCode) {
             return try JSONDecoder().decode(TaskModel.self, from: data)
@@ -238,6 +238,7 @@ struct TaskApi {
         guard let http = response as? HTTPURLResponse else {
             throw ApiError(message: "Invalid server response")
         }
+        NetworkHelpers.handleUnauthorizedIfNeeded(http)
 
         if (200...299).contains(http.statusCode) {
             return try JSONDecoder().decode([TaskModel].self, from: data)
@@ -266,6 +267,7 @@ struct TaskApi {
         guard let http = response as? HTTPURLResponse else {
             throw ApiError(message: "Invalid server response")
         }
+        NetworkHelpers.handleUnauthorizedIfNeeded(http)
 
         if (200...299).contains(http.statusCode) {
             return try JSONDecoder().decode([TaskModel].self, from: data)
@@ -294,6 +296,7 @@ struct TaskApi {
         guard let http = response as? HTTPURLResponse else {
             throw ApiError(message: "Invalid server response")
         }
+        NetworkHelpers.handleUnauthorizedIfNeeded(http)
 
         if (200...299).contains(http.statusCode) {
             return try JSONDecoder().decode([TaskModel].self, from: data)
@@ -321,6 +324,7 @@ struct TaskApi {
         guard let http = response as? HTTPURLResponse else {
             throw ApiError(message: "Invalid server response")
         }
+        NetworkHelpers.handleUnauthorizedIfNeeded(http)
 
         if (200...299).contains(http.statusCode) {
             return try JSONDecoder().decode([TaskModel].self, from: data)
@@ -348,6 +352,7 @@ struct TaskApi {
         guard let http = response as? HTTPURLResponse else {
             throw ApiError(message: "Invalid server response")
         }
+        NetworkHelpers.handleUnauthorizedIfNeeded(http)
 
         if (200...299).contains(http.statusCode) {
             return try JSONDecoder().decode([TaskModel].self, from: data)
@@ -363,3 +368,4 @@ struct TaskApi {
     
     
 }
+

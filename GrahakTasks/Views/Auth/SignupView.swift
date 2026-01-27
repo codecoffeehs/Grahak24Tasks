@@ -118,15 +118,18 @@ struct SignupView: View {
                     Text("Password")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled(true)
 
                     HStack(spacing: 8) {
                         Group {
                             if showPassword {
                                 TextField("Create a password", text: $password)
+                                    .textInputAutocapitalization(.never)
+                                    .autocorrectionDisabled(true)
+                                    
                             } else {
                                 SecureField("Create a password", text: $password)
+                                    .textInputAutocapitalization(.never)
+                                    .autocorrectionDisabled(true)
                             }
                         }
                         .textContentType(.newPassword)
