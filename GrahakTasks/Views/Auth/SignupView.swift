@@ -229,7 +229,16 @@ struct SignupView: View {
 
         // Background
         .background(
-            Color(.systemBackground).ignoresSafeArea()
+            Color(.systemBackground)
+                .ignoresSafeArea()
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    // Dismiss focus when tapping outside
+                    focusedField = nil
+                    #if os(iOS)
+                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                    #endif
+                }
         )
 
         // Top decorative overlay (to match LoginView’s stronger styling)
@@ -299,6 +308,15 @@ struct SignupView: View {
         .navigationDestination(isPresented: $navigateToConfirm) {
             SignupConfirmView(email: email.trimmingCharacters(in: .whitespacesAndNewlines))
                 .environmentObject(auth)
+        }
+        // Prevent layout shift when keyboard shows
+        .ignoresSafeArea(.keyboard)
+        // Dismiss focus automatically when keyboard is about to show/hide (extra safety)
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+            focusedField = nil
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            // no-op; layout won’t jump due to ignoresSafeArea(.keyboard)
         }
     }
 

@@ -72,15 +72,6 @@ struct CategoryView: View {
                             ))
                         }
                     }
-                    .swipeActions(edge: .leading, allowsFullSwipe: true){
-                        Button{
-//                            if let token = authStore.token{
-//                                await taskStore.deleteTask(id: , token: <#T##String#>)
-//                            }
-                        } label:{
-                            Image(systemName:"trash")
-                        }
-                    }
                     .listStyle(.insetGrouped)
                 }
             }
@@ -131,32 +122,15 @@ struct CategoryView: View {
             .sheet(isPresented: $addCategoryOpen) {
                 AddCategoryView()
             }
-            // Only show the search bar when we actually have categories
-            .modifier(ConditionalSearchModifier(
-                isEnabled: hasCategories,
-                text: $categorySearch,
-                prompt: "Search for a category"
-            ))
+            // Always show the search bar to avoid layout jitter across navigations
+            .searchable(text: $categorySearch, prompt: "Search for a category")
+            .textInputAutocapitalization(.never)
+            .autocorrectionDisabled(true)
             .task {
                 if let token = authStore.token {
                     await categoryStore.fetchCategories(token: token)
                 }
             }
-        }
-    }
-}
-
-// Small helper to conditionally apply .searchable
-private struct ConditionalSearchModifier: ViewModifier {
-    let isEnabled: Bool
-    @Binding var text: String
-    let prompt: String
-
-    func body(content: Content) -> some View {
-        if isEnabled {
-            content.searchable(text: $text, prompt: prompt).textInputAutocapitalization(.never).autocorrectionDisabled(true)
-        } else {
-            content
         }
     }
 }
