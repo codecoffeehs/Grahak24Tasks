@@ -7,7 +7,8 @@ struct SingleTaskView: View {
     // Editing
     @State private var isEditing = false
     @State private var newTaskTitle = ""
-    @State private var newDueDate = Date().addingTimeInterval(180)
+    @State private var newDescription = ""
+    @State private var newDueDate = Date().addingTimeInterval(240)
     @State private var newRepeatOption: RepeatType = .none
     @State private var newCategoryId: String = ""
     @State private var setReminder = false
@@ -275,6 +276,14 @@ struct SingleTaskView: View {
                 .textInputAutocapitalization(.sentences)
         }
 
+        // Description
+        Section("Description") {
+            TextEditor(text: $newDescription)
+                .frame(minHeight: 80)
+                .lineLimit(6)
+                .padding(.vertical, 2)
+        }
+
         // Category
         Section {
             if !categoryStore.categories.isEmpty {
@@ -405,6 +414,15 @@ struct SingleTaskView: View {
             detailRow(icon: "arrow.clockwise", title: "Repeat", value: (task.repeatType ?? .none).shortTitle, valueColor: repeatColor)
             detailRow(icon: task.icon, title: "Category", value: task.categoryTitle, valueColor: categoryColor)
         }
+        // Description section (if non-empty)
+        if !task.description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            Section("Description") {
+                Text(task.description)
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 
     @ViewBuilder
@@ -455,9 +473,10 @@ struct SingleTaskView: View {
 
     private func startEditing() {
         newTaskTitle = task.title
+        newDescription = task.description
         newCategoryId = task.categoryId
         newRepeatOption = task.repeatType ?? .none
-        
+
         // If task has a due date, enable reminder and parse it
         if let dueString = task.due,
            let parsedDate = ISO8601DateFormatter().date(from: dueString) {
@@ -467,7 +486,7 @@ struct SingleTaskView: View {
             setReminder = false
             newDueDate = Date().addingTimeInterval(180)
         }
-        
+
         isEditing = true
     }
 
@@ -487,13 +506,28 @@ struct SingleTaskView: View {
                 let updatedTask = try await taskStore.editTask(
                     taskId: task.id,
                     title: newTaskTitle.trimmingCharacters(in: .whitespacesAndNewlines),
+                    description: newDescription.trimmingCharacters(in: .whitespacesAndNewlines),
                     due: finalDue,
                     isCompleted: nil,
                     repeatType: finalRepeat,
                     taskCategoryId: newCategoryId,
                     token: token
                 )
-                
+
+                // 🔔 Update local notifications based on edited values
+                if updatedTask.isCompleted || updatedTask.due == nil {
+                    // Cancel if completed or due removed
+                    NotificationManager.shared.cancelTaskNotification(id: updatedTask.id)
+                } else if let iso = updatedTask.due,
+                          let dueDate = ISO8601DateFormatter().date(from: iso) {
+                    // Reschedule using updated title and due
+                    NotificationManager.shared.scheduleTaskNotification(
+                        id: updatedTask.id,
+                        title: updatedTask.title,
+                        dueDate: dueDate
+                    )
+                }
+
                 // ✅ Update local task with fresh data from API
                 task = updatedTask
                 isEditing = false

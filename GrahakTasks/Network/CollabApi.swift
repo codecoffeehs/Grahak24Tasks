@@ -161,14 +161,10 @@ struct CollabApi{
     }
     
     // MARK: - Accept Invite and Create Task
-    static func acceptInviteAndCreateTask(
-        inviteId:String,
-        title: String,
-        due: Date?,
-        repeatType: RepeatType?,
-        categoryId: String,
+    static func acceptInvite(
+        inviteId: String,
         token: String
-    ) async throws -> TaskModel {
+    ) async throws {
 
         guard let url = URL(string: "\(baseURLTwo)/accept/\(inviteId)") else {
             throw ApiError(message: "Invalid URL")
@@ -178,41 +174,29 @@ struct CollabApi{
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        var body: [String: Any] = [
-            "inviteId":inviteId,
-            "title": title,
-            "taskCategoryId": categoryId
-        ]
-
-        // If your backend expects missing keys instead of null, comment out the NSNull lines
-        if let due {
-            body["due"] = ISO8601DateFormatter().string(from: due)
-        }
-
-        if let repeatType {
-            body["repeat"] = repeatType.rawValue
-      }
-
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        request.httpBody = try JSONSerialization.data(
+            withJSONObject: ["inviteId": inviteId]
+        )
 
         let (data, response) = try await URLSession.shared.data(for: request)
 
         guard let http = response as? HTTPURLResponse else {
             throw ApiError(message: "Invalid server response")
         }
+
         NetworkHelpers.handleUnauthorizedIfNeeded(http)
 
-        if (200...299).contains(http.statusCode) {
-            return try JSONDecoder().decode(TaskModel.self, from: data)
-        }
+        guard (200...299).contains(http.statusCode) else {
+            if let apiError = try? JSONDecoder().decode(ApiErrorResponse.self, from: data) {
+                throw ApiError(message: apiError.message)
+            }
 
-        if let apiError = try? JSONDecoder().decode(ApiErrorResponse.self, from: data) {
-            throw ApiError(message: apiError.message)
+            throw ApiError(
+                message: String(data: data, encoding: .utf8) ?? "Failed to accept request"
+            )
         }
-
-        let raw = String(data: data, encoding: .utf8) ?? "Failed to create task"
-        throw ApiError(message: raw)
     }
+
     
     static func rejectInvite(inviteId:String,token:String) async throws{
         guard let url = URL(string: "\(baseURLTwo)/reject/\(inviteId)") else {

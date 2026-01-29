@@ -65,6 +65,7 @@ struct TaskApi {
     // MARK: - Create Task
     static func createTask(
         title: String,
+        description: String,
         due: Date?,                 // optional
         repeatType: RepeatType?,    // optional
         categoryId: String,
@@ -81,6 +82,7 @@ struct TaskApi {
 
         var body: [String: Any] = [
             "title": title,
+            "description":description,
             "taskCategoryId": categoryId
         ]
 
@@ -179,6 +181,7 @@ struct TaskApi {
     static func editTask(
         taskId: String,
         title: String? = nil,
+        description:String? = nil,
         due: Date? = nil,
         isCompleted: Bool? = nil,
         repeatType: RepeatType? = nil,
@@ -197,6 +200,7 @@ struct TaskApi {
         var body: [String: Any] = [:]
 
         if let title { body["title"] = title }
+        if let description { body["description"] = description }
         if let due { body["due"] = ISO8601DateFormatter().string(from: due) }
         if let isCompleted { body["isCompleted"] = isCompleted }
         if let repeatType { body["repeat"] = repeatType.rawValue }

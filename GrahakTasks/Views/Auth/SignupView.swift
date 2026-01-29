@@ -125,7 +125,6 @@ struct SignupView: View {
                                 TextField("Create a password", text: $password)
                                     .textInputAutocapitalization(.never)
                                     .autocorrectionDisabled(true)
-                                    
                             } else {
                                 SecureField("Create a password", text: $password)
                                     .textInputAutocapitalization(.never)
@@ -311,13 +310,6 @@ struct SignupView: View {
         }
         // Prevent layout shift when keyboard shows
         .ignoresSafeArea(.keyboard)
-        // Dismiss focus automatically when keyboard is about to show/hide (extra safety)
-        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
-            focusedField = nil
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
-            // no-op; layout won’t jump due to ignoresSafeArea(.keyboard)
-        }
     }
 
     // Minimal underline color logic (consistent with LoginView)

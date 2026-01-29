@@ -17,6 +17,7 @@ struct TaskListView: View {
         } label: {
             TaskRow(
                 title: task.title,
+                description: task.description,
                 due: task.due,
                 isCompleted: task.isCompleted,
                 repeatType: task.repeatType,

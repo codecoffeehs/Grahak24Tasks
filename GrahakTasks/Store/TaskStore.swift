@@ -8,7 +8,7 @@ class TaskStore: ObservableObject {
     @Published var todayTasks: [TaskModel] = []
     @Published var upcomingTasks: [TaskModel] = []
     @Published var overdueTasks: [TaskModel] = []
-    @Published var noDueTasks : [TaskModel] = []
+    @Published var noDueTasks: [TaskModel] = []
     
     @Published var todayCount: Int = 0
     @Published var upcomingCount: Int = 0
@@ -24,12 +24,13 @@ class TaskStore: ObservableObject {
     @Published var showErrorAlert: Bool = false
 
     // MARK: - Separate Task Page
-    @Published var allTodayTasks : [TaskModel] = []
-    @Published var allUpcomingTasks : [TaskModel] = []
-    @Published var allOverdueTasks : [TaskModel] = []
-    @Published var allNoDueTasks : [TaskModel] = []
+    @Published var allTodayTasks: [TaskModel] = []
+    @Published var allUpcomingTasks: [TaskModel] = []
+    @Published var allOverdueTasks: [TaskModel] = []
+    @Published var allNoDueTasks: [TaskModel] = []
     // MARK: - Tasks For Category
     @Published var categoryTasks: [TaskModel] = []
+    
     // MARK: - Fetch Recent Tasks (Home)
     func fetchRecentTasks(token: String) async {
         isLoading = true
@@ -73,6 +74,7 @@ class TaskStore: ObservableObject {
     // MARK: - Add Task
     func addTask(
         title: String,
+        description:String,
         due: Date?,                 // optional
         repeatType: RepeatType?,    // optional
         categoryId: String,
@@ -94,6 +96,7 @@ class TaskStore: ObservableObject {
         do {
             let newTask = try await TaskApi.createTask(
                 title: title,
+                description:description,
                 due: due,
                 repeatType: repeatType,
                 categoryId: categoryId,
@@ -120,22 +123,59 @@ class TaskStore: ObservableObject {
         isLoading = false
     }
 
-
-    // MARK: - Toggle Task
+    // MARK: - Toggle Task (Optimistic UI Update, shows all tasks)
     func toggleTask(
         id: String,
         token: String
     ) async {
         do {
-            _ = try await TaskApi.toggleTask(taskId: id, token: token)
+            let updatedTask = try await TaskApi.toggleTask(taskId: id, token: token)
             
             NotificationManager.shared.cancelTaskNotification(id: id)
-            // ✅ Refresh Home sections (keeps ordering + sections accurate)
-            await fetchRecentTasks(token: token)
+
+            // Remove the old task from all arrays
+            todayTasks.removeAll { $0.id == id }
+            upcomingTasks.removeAll { $0.id == id }
+            overdueTasks.removeAll { $0.id == id }
+            noDueTasks.removeAll { $0.id == id }
+            tasks.removeAll { $0.id == id }
+
+            // Insert the updated task into the correct section, regardless of completion
+            switch getSection(for: updatedTask) {
+            case .today: todayTasks.insert(updatedTask, at: 0)
+            case .upcoming: upcomingTasks.insert(updatedTask, at: 0)
+            case .overdue: overdueTasks.insert(updatedTask, at: 0)
+            case .noDue: noDueTasks.insert(updatedTask, at: 0)
+            }
+            tasks.insert(updatedTask, at: 0)
+
+            // Update counts
+            todayCount = todayTasks.count
+            upcomingCount = upcomingTasks.count
+            overdueCount = overdueTasks.count
+            noDueCount = noDueTasks.count
 
         } catch {
             errorMessage = error.localizedDescription
             showErrorAlert = true
+        }
+    }
+
+    // Sectioning utility for optimistic update
+    private enum TaskSection { case today, upcoming, overdue, noDue }
+    private func getSection(for task: TaskModel) -> TaskSection {
+        guard let dueString = task.due,
+              let dueDate = ISO8601DateFormatter().date(from: dueString) else {
+            return .noDue
+        }
+        let calendar = Calendar.current
+        let now = Date()
+        if dueDate < now {
+            return .overdue
+        } else if calendar.isDateInToday(dueDate) {
+            return .today
+        } else {
+            return .upcoming
         }
     }
     
@@ -143,6 +183,7 @@ class TaskStore: ObservableObject {
     func editTask(
         taskId: String,
         title: String? = nil,
+        description: String? = nil,
         due: Date? = nil,
         isCompleted: Bool? = nil,
         repeatType: RepeatType? = nil,
@@ -167,6 +208,7 @@ class TaskStore: ObservableObject {
             let updatedTask = try await TaskApi.editTask(
                 taskId: taskId,
                 title: title,
+                description: description,
                 due: due,
                 isCompleted: isCompleted,
                 repeatType: repeatType,
@@ -200,23 +242,33 @@ class TaskStore: ObservableObject {
         }
     }
 
-    // MARK: - Delete Task
+    // MARK: - Delete Task (Optimistic UI Update)
     func deleteTask(
         id: String,
         token: String
     ) async {
+        // Optimistically remove task from UI
+        todayTasks.removeAll { $0.id == id }
+        upcomingTasks.removeAll { $0.id == id }
+        overdueTasks.removeAll { $0.id == id }
+        noDueTasks.removeAll { $0.id == id }
+        tasks.removeAll { $0.id == id }
+        
+        todayCount = todayTasks.count
+        upcomingCount = upcomingTasks.count
+        overdueCount = overdueTasks.count
+        noDueCount = noDueTasks.count
+
+        NotificationManager.shared.cancelTaskNotification(id: id)
+        
         do {
             try await TaskApi.deleteTask(taskId: id, token: token)
-
-            // cancel notification
-            NotificationManager.shared.cancelTaskNotification(id: id)
-
-            // ✅ Refresh Home sections
-            await fetchRecentTasks(token: token)
-
+            // Success, nothing more to do.
         } catch {
             errorMessage = error.localizedDescription
             showErrorAlert = true
+            // Optionally re-fetch from backend if you want to revert the optimistic delete:
+             await fetchRecentTasks(token: token)
         }
     }
     
@@ -297,3 +349,4 @@ class TaskStore: ObservableObject {
             isLoading = false
     }
 }
+

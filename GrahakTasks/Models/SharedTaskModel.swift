@@ -1,6 +1,7 @@
 struct SharedTaskModel : Identifiable,Codable {
     let id :String
     var title : String
+    var description:String
     var isCompleted: Bool
     var due : String
     

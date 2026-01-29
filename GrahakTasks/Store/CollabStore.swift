@@ -76,55 +76,23 @@ class CollabStore : ObservableObject{
         isLoading = false
     }
     
-    // MARK: - Accept Invite + Create Task (returns created TaskModel)
-    func acceptInviteAndCreateTask(
-        token: String,
-        inviteId: String,
-        title: String,
-        due: Date?,
-        repeatType: RepeatType?,
-        categoryId: String
-    ) async -> TaskModel? {
-        isLoading = true
-        errorMessage = nil
-        defer { isLoading = false }
-        
-        do {
-            let created = try await CollabApi.acceptInviteAndCreateTask(
-                inviteId: inviteId,
-                title: title,
-                due: due,
-                repeatType: repeatType,
-                categoryId: categoryId,
-                token: token
-            )
-            return created
-        } catch {
-            errorMessage = error.localizedDescription
-            showErrorAlert = true
-            return nil
-        }
-    }
+
     
     // MARK: - Accept Invite + Create Task (fire-and-forget convenience)
     func acceptInvite(
         token: String,
-        inviteId: String,
-        title: String,
-        due: Date?,
-        repeatType: RepeatType?,
-        categoryId: String
+        inviteId: String
     ) async {
-        _ = await acceptInviteAndCreateTask(
-            token: token,
-            inviteId: inviteId,
-            title: title,
-            due: due,
-            repeatType: repeatType,
-            categoryId: categoryId
-        )
+        do {
+            try await CollabApi.acceptInvite(
+                inviteId: inviteId,
+                token: token
+            )
+        } catch {
+            self.errorMessage = error.localizedDescription
+        }
     }
-    
+
     // MARK: - Reject Invite (refetch strategy)
     func rejectInvite(token: String, inviteId: String) async {
         isLoading = true

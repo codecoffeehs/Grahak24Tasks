@@ -1,5 +1,5 @@
 //
-//  TodayTasksView.swift
+//  UpcomingTasksView.swift
 //  GrahakTasks
 //
 //  Created by Hemant Sharma on 14/01/26.
@@ -11,7 +11,10 @@ struct UpcomingTasksView: View {
     @EnvironmentObject private var taskStore: TaskStore
     @EnvironmentObject private var authStore: AuthStore
 
-   
+    // State for delete confirmation
+    @State private var pendingDeleteTaskID = ""
+    @State private var pendingDeleteTaskTitle = ""
+    @State private var showDeleteAlert = false
 
     var body: some View {
         NavigationStack {
@@ -34,6 +37,7 @@ struct UpcomingTasksView: View {
                         } label: {
                             TaskRow(
                                 title: task.title,
+                                description: task.description,
                                 due: task.due,
                                 isCompleted: task.isCompleted,
                                 repeatType: task.repeatType,
@@ -41,6 +45,34 @@ struct UpcomingTasksView: View {
                                 colorHex: task.color,
                                 categoryIcon: task.icon
                             )
+                            .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                                Button(role: .destructive) {
+                                    // Stage for confirmation
+                                    pendingDeleteTaskID = task.id
+                                    pendingDeleteTaskTitle = task.title
+                                    showDeleteAlert = true
+                                } label: {
+                                    Image(systemName: "trash")
+                                }
+                                .accessibilityLabel("Delete task")
+                                .accessibilityHint("Opens confirmation alert to permanently delete this task")
+                                .accessibilityIdentifier("delete_task_button")
+                            }
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                Button {
+                                    Task {
+                                        if let token = authStore.token {
+                                            await taskStore.toggleTask(id: task.id, token: token)
+                                        }
+                                    }
+                                } label: {
+                                    Image(systemName: "checkmark")
+                                }
+                                .tint(.green)
+                                .accessibilityLabel("Complete task")
+                                .accessibilityHint("Marks this task as completed")
+                                .accessibilityIdentifier("complete_task_button")
+                            }
                         }
                     }
                     .listStyle(.insetGrouped)
@@ -48,16 +80,37 @@ struct UpcomingTasksView: View {
             }
             .navigationTitle("Upcoming (\(taskStore.allUpcomingTasks.count))")
         }
-        .task{
-            // Fetch when the view appears and whenever the token changes
+        .task {
             if let token = authStore.token {
                 await taskStore.fetchUpcomingTasks(token: token)
             }
+        }
+        .alert("Delete Task?", isPresented: $showDeleteAlert) {
+            Button("Cancel", role: .cancel) {
+                pendingDeleteTaskID = ""
+                pendingDeleteTaskTitle = ""
+            }
+
+            Button("Delete", role: .destructive) {
+                let taskId = pendingDeleteTaskID
+                pendingDeleteTaskID = ""
+                pendingDeleteTaskTitle = ""
+                showDeleteAlert = false
+
+                Task {
+                    if let token = authStore.token {
+                        await taskStore.deleteTask(id: taskId, token: token)
+                    }
+                }
+            }
+        } message: {
+            Text("Are you sure you want to delete “\(pendingDeleteTaskTitle)”? This action cannot be undone.")
         }
         .alert("Error", isPresented: $taskStore.showErrorAlert) {
             Button("OK", role: .cancel) {}
         } message: {
             Text(taskStore.errorMessage ?? "Something went wrong")
         }
+
     }
 }

@@ -9,6 +9,7 @@ import Foundation
 struct TaskRequests : Identifiable,Codable{
     let id : String
     var title: String
+    var description:String
     var invitedByUserEmail : String
     var sharedOn : String
 }

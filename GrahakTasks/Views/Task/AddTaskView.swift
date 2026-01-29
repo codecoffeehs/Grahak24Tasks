@@ -2,17 +2,21 @@ import SwiftUI
 
 struct AddTaskView: View {
     @EnvironmentObject var taskStore: TaskStore
-    @EnvironmentObject var categoryStore : CategoryStore
+    @EnvironmentObject var categoryStore: CategoryStore
     @EnvironmentObject var auth: AuthStore
     @Environment(\.dismiss) var dismiss
 
     @State private var title = ""
+    @State private var description = ""
     @State private var dueDate = Date().addingTimeInterval(120)
     @State private var repeatOption: RepeatType = .none
     @State private var selectedCategoryId: String = "__placeholder__"
     @State private var notificationsAllowed = true
     @State private var setReminder = false
 
+    private let descriptionLimit = 250
+
+    // MARK: - Notification Permission
     private func checkNotificationPermission() {
         UNUserNotificationCenter.current().getNotificationSettings { settings in
             DispatchQueue.main.async {
@@ -24,9 +28,8 @@ struct AddTaskView: View {
         }
     }
 
-    // Pick the best default category: "Others" if available, otherwise first category
+    // MARK: - Category Defaults
     private func selectDefaultCategoryIfNeeded() {
-        // Only pick a real ID if we currently have a placeholder or empty
         guard selectedCategoryId == "__placeholder__" || selectedCategoryId.isEmpty else { return }
 
         if let others = categoryStore.categories.first(where: {
@@ -42,7 +45,7 @@ struct AddTaskView: View {
         !categoryStore.categories.isEmpty
     }
 
-    private var minimumLeadTime: TimeInterval { 60 } // keep in sync with TaskStore.addTask check
+    private var minimumLeadTime: TimeInterval { 60 }
 
     private var isDueValid: Bool {
         dueDate.timeIntervalSinceNow > minimumLeadTime
@@ -50,18 +53,13 @@ struct AddTaskView: View {
 
     private var canSave: Bool {
         let hasTitle = !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        let hasRealCategory = categoriesAvailable && selectedCategoryId != "__placeholder__" && !selectedCategoryId.isEmpty
-        guard hasTitle, hasRealCategory, !taskStore.isLoading else { return false }
+        let hasCategory = categoriesAvailable && selectedCategoryId != "__placeholder__"
+        guard hasTitle, hasCategory, !taskStore.isLoading else { return false }
 
-        if setReminder {
-            // When reminders are on, require permission and a valid due date
-            return notificationsAllowed && isDueValid
-        } else {
-            // When reminders are off, title + category are enough
-            return true
-        }
+        return setReminder ? notificationsAllowed && isDueValid : true
     }
 
+    // MARK: - Body
     var body: some View {
         NavigationStack {
             Form {
@@ -72,6 +70,62 @@ struct AddTaskView: View {
                         .textInputAutocapitalization(.sentences)
                 }
 
+                // MARK: - Description
+                Section {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ZStack(alignment: .topLeading) {
+                            if description.isEmpty {
+                                Text("Add a description...") // Subtle placeholder
+                                    .foregroundStyle(.secondary)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 10)
+                            }
+                            TextEditor(text: $description)
+                                .frame(minHeight: 88, maxHeight: 120)
+                                .padding(.horizontal, -5)
+                                .background(Color(.clear))
+                                .onChange(of: description) { _, newValue in
+                                    if newValue.count > descriptionLimit {
+                                        description = String(newValue.prefix(descriptionLimit))
+                                    }
+                                }
+                                .font(.body)
+                        }
+                        // Progress + Counter Row
+                        HStack {
+                            // Progress Bar
+                            GeometryReader { geometry in
+                                ZStack(alignment: .leading) {
+                                    Capsule()
+                                        .fill(Color(.systemGray5))
+                                        .frame(height: 8)
+                                    Capsule()
+                                        .fill(
+                                            description.count < descriptionLimit
+                                            ? Color.accentColor
+                                            : Color.red
+                                        )
+                                        .frame(
+                                            width: CGFloat(description.count) / CGFloat(descriptionLimit) * geometry.size.width,
+                                            height: 8
+                                        )
+                                }
+                            }
+                            .frame(height: 8)
+                            .padding(.trailing, 8)
+
+                            // Character Counter
+                            Text("\(description.count)/\(descriptionLimit)")
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(description.count == descriptionLimit ? .red : .secondary)
+                                .frame(minWidth: 56, alignment: .trailing)
+                        }
+                        .padding(.top, 2)
+                        .padding(.horizontal, 2)
+                    }
+                    .padding(.vertical, 2)
+                }
+
                 // MARK: - Category
                 Section {
                     if categoriesAvailable {
@@ -80,8 +134,7 @@ struct AddTaskView: View {
                                 Text("Select a category").tag("__placeholder__")
                             }
                             ForEach(categoryStore.categories, id: \.id) { category in
-                                Text(category.title)
-                                    .tag(category.id)
+                                Text(category.title).tag(category.id)
                             }
                         }
                     } else {
@@ -91,10 +144,6 @@ struct AddTaskView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
-                } footer: {
-                    if !categoriesAvailable {
-                        Text("We’re loading your categories. This usually takes a moment.")
-                    }
                 }
 
                 // MARK: - Reminder Toggle
@@ -103,21 +152,13 @@ struct AddTaskView: View {
                         Label("Set Reminder", systemImage: "bell.badge")
                     }
                     .onChange(of: setReminder) { _, newValue in
-                        // If user turns it on but notifications are not allowed, reset and advise.
                         if newValue && !notificationsAllowed {
                             setReminder = false
                         }
                     }
-                } footer: {
-                    if !notificationsAllowed {
-                        Text("Enable notifications in Settings to set reminders for tasks.")
-                            .foregroundStyle(.red)
-                    } else {
-                        Text("Turn this on to choose a date and time and optional repeat.")
-                    }
                 }
 
-                // MARK: - Due Date & Time (only when reminder is ON and notifications allowed)
+                // MARK: - Due Date & Repeat
                 if setReminder {
                     Section {
                         DatePicker(
@@ -126,33 +167,18 @@ struct AddTaskView: View {
                             in: Date().addingTimeInterval(minimumLeadTime)...,
                             displayedComponents: [.date, .hourAndMinute]
                         )
-                        .disabled(!notificationsAllowed)
+
                         if notificationsAllowed && !isDueValid {
                             Text("Pick a time at least 1 minute from now.")
                                 .foregroundStyle(.red)
                         }
-                    } footer: {
-                        if !notificationsAllowed {
-                            Text("Enable notifications to set reminders for tasks.")
-                                .foregroundStyle(.red)
-                        }
                     }
 
-                    // MARK: - Repeat
                     Section {
                         Picker("Repeat", selection: $repeatOption) {
                             ForEach(RepeatType.allCases) { option in
-                                Text(option.title)
-                                    .tag(option)
+                                Text(option.title).tag(option)
                             }
-                        }
-                        .disabled(!notificationsAllowed)
-                    } footer: {
-                        if !notificationsAllowed {
-                            Text("Repeating tasks require notification permissions.")
-                                .foregroundStyle(.red)
-                        } else {
-                            Text("Choose how often this reminder should repeat.")
                         }
                     }
                 }
@@ -161,35 +187,35 @@ struct AddTaskView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
 
+                // Cancel
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") { dismiss() }
+                }
+
                 // Save
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Save") {
                         Task {
                             guard let token = auth.token else { return }
 
-                            let finalDue: Date? = (setReminder && notificationsAllowed) ? dueDate : nil
-                            let finalRepeat: RepeatType? = (setReminder && notificationsAllowed) ? repeatOption : nil
+                            let finalDue = setReminder && notificationsAllowed ? dueDate : nil
+                            let finalRepeat = setReminder && notificationsAllowed ? repeatOption : nil
 
                             await taskStore.addTask(
                                 title: title.trimmingCharacters(in: .whitespacesAndNewlines),
+                                description: description.trimmingCharacters(in: .whitespacesAndNewlines),
                                 due: finalDue,
                                 repeatType: finalRepeat,
                                 categoryId: selectedCategoryId,
                                 token: token
                             )
+
                             if taskStore.errorMessage == nil {
                                 dismiss()
                             }
                         }
                     }
                     .disabled(!canSave)
-                }
-
-                // Cancel
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
                 }
             }
         }
@@ -204,7 +230,6 @@ struct AddTaskView: View {
                 }
             }
         }
-        // When categories load later, immediately select a default to ensure selection matches a tag
         .onChange(of: categoryStore.categories.count) { _, _ in
             selectDefaultCategoryIfNeeded()
         }

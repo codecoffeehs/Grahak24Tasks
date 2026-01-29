@@ -2,15 +2,14 @@ import SwiftUI
 
 struct TaskRow: View {
     let title: String
+    let description: String
     let due: String?                  // optional
     let isCompleted: Bool
     let repeatType: RepeatType?       // optional
     let categoryTitle: String
     let colorHex: String
     let categoryIcon: String
-    
 
-    
     private var categoryColor: Color { Color(hex: colorHex) }
 
     private var repeatColor: Color {
@@ -40,6 +39,32 @@ struct TaskRow: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
 
+                // Description with truncation and fade at the end
+                if !description.isEmpty {
+                    Text(description)
+                        .font(.system(size: 14))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .truncationMode(.tail)
+                        .overlay(
+                            GeometryReader { geometry in
+                                // Only show fade if text overflows
+                                HStack {
+                                    Spacer()
+                                    LinearGradient(
+                                        gradient: Gradient(colors: [.clear, Color(.systemBackground)]),
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                    .frame(width: 32)
+                                    .allowsHitTesting(false)
+                                }
+                                .frame(width: geometry.size.width, height: geometry.size.height)
+                                .offset(y: 4)
+                            }
+                        )
+                }
+
                 // Metadata chips
                 ViewThatFits(in: .horizontal) {
                     // Preferred single-line
@@ -47,7 +72,6 @@ struct TaskRow: View {
                         dueChip
                         repeatChip
                         categoryChip
-                       
                     }
 
                     // Wrapped fallback
@@ -58,7 +82,6 @@ struct TaskRow: View {
                         }
                         HStack(spacing: 8) {
                             categoryChip
-                            
                         }
                     }
                 }
@@ -167,8 +190,6 @@ struct TaskRow: View {
         )
         .fixedSize(horizontal: true, vertical: false)
     }
-
-    
 
     // MARK: - Chip styling helpers
 
