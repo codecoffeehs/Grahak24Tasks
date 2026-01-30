@@ -169,7 +169,8 @@ struct CategoryTasksView: View {
             categoryId: categoryId,
             categoryTitle: categoryTitle,
             color: color,
-            icon: icon
+            icon: icon,
+            isCreator: true
         )
 
         // Insert at top for fast feedback

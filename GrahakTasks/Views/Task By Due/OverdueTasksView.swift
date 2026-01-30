@@ -16,6 +16,18 @@ struct OverdueTasksView: View {
     @State private var pendingDeleteTaskTitle = ""
     @State private var showDeleteAlert = false
     
+    private var countSubtitle: String {
+        let count = taskStore.overdueCount
+        if taskStore.isLoading {
+            return "Loading…"
+        } else if count == 0 {
+            return "No items"
+        } else if count == 1 {
+            return "1 item"
+        } else {
+            return "\(count) items"
+        }
+    }
     
     var body: some View {
         NavigationStack {
@@ -79,7 +91,20 @@ struct OverdueTasksView: View {
                     .listStyle(.insetGrouped)
                 }
             }
-            .navigationTitle("Overdue (\(taskStore.allOverdueTasks.count))")
+            .navigationTitle("Overdue Tasks")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    VStack(spacing: 2) {
+                        Text("Overdue Tasks")
+                            .font(.headline)
+                        Text(countSubtitle)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .accessibilityElement(children: .combine)
+                }
+            }
         }
         .task {
             if let token = authStore.token {

@@ -15,7 +15,19 @@ struct UpcomingTasksView: View {
     @State private var pendingDeleteTaskID = ""
     @State private var pendingDeleteTaskTitle = ""
     @State private var showDeleteAlert = false
-
+    
+    private var countSubtitle: String {
+        let count = taskStore.noDueCount
+        if taskStore.isLoading {
+            return "Loading…"
+        } else if count == 0 {
+            return "No items"
+        } else if count == 1 {
+            return "1 item"
+        } else {
+            return "\(count) items"
+        }
+    }
     var body: some View {
         NavigationStack {
             Group {
@@ -78,7 +90,20 @@ struct UpcomingTasksView: View {
                     .listStyle(.insetGrouped)
                 }
             }
-            .navigationTitle("Upcoming (\(taskStore.allUpcomingTasks.count))")
+            .navigationTitle("Upcoming Tasks")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    VStack(spacing: 2) {
+                        Text("Upcoming Tasks")
+                            .font(.headline)
+                        Text(countSubtitle)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .accessibilityElement(children: .combine)
+                }
+            }
         }
         .task {
             if let token = authStore.token {

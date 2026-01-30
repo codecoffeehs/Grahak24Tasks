@@ -1,5 +1,5 @@
 //
-//  TodayTasksView.swift
+//  OverdueTasksView.swift
 //  GrahakTasks
 //
 //  Created by Hemant Sharma on 14/01/26.
@@ -11,15 +11,29 @@ struct NoDueTasksView: View {
     @EnvironmentObject private var taskStore: TaskStore
     @EnvironmentObject private var authStore: AuthStore
     
+    // State for delete confirmation
     @State private var pendingDeleteTaskID = ""
     @State private var pendingDeleteTaskTitle = ""
     @State private var showDeleteAlert = false
-
+    
+    private var countSubtitle: String {
+        let count = taskStore.noDueCount
+        if taskStore.isLoading {
+            return "Loading…"
+        } else if count == 0 {
+            return "No items"
+        } else if count == 1 {
+            return "1 item"
+        } else {
+            return "\(count) items"
+        }
+    }
+    
     var body: some View {
         NavigationStack {
             Group {
                 if taskStore.isLoading {
-                    ProgressView("Loading no due tasks…")
+                    ProgressView("Loading No Due tasks…")
                         .progressViewStyle(.circular)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if taskStore.allNoDueTasks.isEmpty {
@@ -57,7 +71,6 @@ struct NoDueTasksView: View {
                                 .accessibilityHint("Opens confirmation alert to permanently delete this task")
                                 .accessibilityIdentifier("delete_task_button")
                             }
-                            
                             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                 Button {
                                     Task {
@@ -72,24 +85,58 @@ struct NoDueTasksView: View {
                                 .accessibilityLabel("Complete task")
                                 .accessibilityHint("Marks this task as completed")
                                 .accessibilityIdentifier("complete_task_button")
-
                             }
                         }
                     }
                     .listStyle(.insetGrouped)
                 }
             }
-            .navigationTitle("No Due (\(taskStore.noDueCount))")
+            .navigationTitle("No Due Tasks")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    VStack(spacing: 2) {
+                        Text("No Due Tasks")
+                            .font(.headline)
+                        Text(countSubtitle)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .accessibilityElement(children: .combine)
+                }
+            }
         }
-        .task{
+        .task {
             if let token = authStore.token {
                 await taskStore.fetchNoDueTasks(token: token)
             }
+        }
+        .alert("Delete Task?", isPresented: $showDeleteAlert) {
+            Button("Cancel", role: .cancel) {
+                pendingDeleteTaskID = ""
+                pendingDeleteTaskTitle = ""
+            }
+
+            Button("Delete", role: .destructive) {
+                let taskId = pendingDeleteTaskID
+                pendingDeleteTaskID = ""
+                pendingDeleteTaskTitle = ""
+                showDeleteAlert = false
+
+                Task {
+                    if let token = authStore.token {
+                        await taskStore.deleteTask(id: taskId, token: token)
+                    }
+                }
+            }
+        } message: {
+            Text("Are you sure you want to delete “\(pendingDeleteTaskTitle)”? This action cannot be undone.")
         }
         .alert("Error", isPresented: $taskStore.showErrorAlert) {
             Button("OK", role: .cancel) {}
         } message: {
             Text(taskStore.errorMessage ?? "Something went wrong")
         }
+
     }
 }

@@ -14,7 +14,19 @@ struct TodayTasksView: View {
     @State private var pendingDeleteTaskID = ""
     @State private var pendingDeleteTaskTitle = ""
     @State private var showDeleteAlert = false
-
+    
+    private var countSubtitle: String {
+        let count = taskStore.todayCount
+        if taskStore.isLoading {
+            return "Loading…"
+        } else if count == 0 {
+            return "No items"
+        } else if count == 1 {
+            return "1 item"
+        } else {
+            return "\(count) items"
+        }
+    }
     var body: some View {
         NavigationStack {
             Group {
@@ -77,7 +89,20 @@ struct TodayTasksView: View {
                     .listStyle(.insetGrouped)
                 }
             }
-            .navigationTitle("Today (\(taskStore.allTodayTasks.count))")
+            .navigationTitle("Today's Tasks")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    VStack(spacing: 2) {
+                        Text("Today's Tasks")
+                            .font(.headline)
+                        Text(countSubtitle)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .accessibilityElement(children: .combine)
+                }
+            }
         }
         .task{
             // Fetch when the view appears and whenever the token changes

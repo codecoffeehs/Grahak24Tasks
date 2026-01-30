@@ -40,6 +40,8 @@ struct SingleTaskView: View {
         self._task = State(initialValue: task)
     }
 
+    private let maxDescriptionLength: Int = 250
+
     private var categoryColor: Color {
         Color(hex: task.color)
     }
@@ -82,9 +84,12 @@ struct SingleTaskView: View {
 
     private var canSave: Bool {
         guard isEditing else { return false }
-        let hasTitle = !newTaskTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let trimmedTitle = newTaskTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let hasTitle = !trimmedTitle.isEmpty
         let hasRealCategory = !newCategoryId.isEmpty && newCategoryId != "__placeholder__"
-        guard hasTitle, hasRealCategory, !taskStore.isLoading else { return false }
+        // Count all characters including internal spaces
+        let isDescriptionValid = newDescription.count <= maxDescriptionLength
+        guard hasTitle, hasRealCategory, isDescriptionValid, !taskStore.isLoading else { return false }
 
         if setReminder {
             return notificationsAllowed && isDueValid
@@ -115,8 +120,11 @@ struct SingleTaskView: View {
                     }
                     .disabled(!canSave)
                 } else {
-                    Button("Edit") {
-                        startEditing()
+                    // Show Edit only if the user is the creator
+                    if task.isCreator {
+                        Button("Edit") {
+                            startEditing()
+                        }
                     }
                 }
             }
@@ -146,7 +154,7 @@ struct SingleTaskView: View {
                         ContentUnavailableView(
                             "Search to Share",
                             systemImage: "magnifyingglass",
-                            description: Text("Type at least 3 characters to search for a user.")
+                            description: Text("Type the full email ID to search for user.")
                         )
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     } else {
@@ -184,7 +192,6 @@ struct SingleTaskView: View {
                             }
                             .listStyle(.insetGrouped)
                         } else {
-                            // Treat errors as empty state for search to avoid jarring UX
                             ContentUnavailableView(
                                 "No users found",
                                 systemImage: "person.crop.circle.badge.exclam",
@@ -205,7 +212,6 @@ struct SingleTaskView: View {
                     let term = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
                     searchTask?.cancel()
 
-                    // Reset state immediately for new term
                     collabStore.taskUsers = []
                     collabStore.errorMessage = nil
                     collabStore.isLoading = false
@@ -274,11 +280,33 @@ struct SingleTaskView: View {
         }
 
         // Description
-        Section("Description") {
+        Section {
             TextEditor(text: $newDescription)
                 .frame(minHeight: 80)
                 .lineLimit(6)
                 .padding(.vertical, 2)
+                .onChange(of: newDescription) { _, value in
+                    if value.count > maxDescriptionLength {
+                        newDescription = String(value.prefix(maxDescriptionLength))
+                    }
+                }
+        } footer: {
+            // Count all characters including internal spaces
+            let count = newDescription.count
+            VStack(alignment: .leading, spacing: 6) {
+                ProgressView(value: Double(min(count, maxDescriptionLength)), total: Double(maxDescriptionLength))
+                    .tint(count > maxDescriptionLength ? .red : .blue)
+                HStack {
+                    Text("\(count)/\(maxDescriptionLength) characters")
+                        .font(.caption)
+                        .foregroundStyle(count > maxDescriptionLength ? .red : .secondary)
+                    if count > maxDescriptionLength {
+                        Text("Trim to save")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.red)
+                    }
+                }
+            }
         }
 
         // Category
@@ -373,32 +401,50 @@ struct SingleTaskView: View {
     @ViewBuilder
     private func headerSection() -> some View {
         Section {
-            HStack(alignment: .top, spacing: 12) {
-                Circle()
-                    .fill(categoryColor.opacity(0.18))
-                    .frame(width: 46, height: 46)
-                    .overlay(
-                        Image(systemName: task.icon)
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(categoryColor)
-                    )
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(task.title)
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(task.isCompleted ? .secondary : .primary)
-                        .strikethrough(task.isCompleted, color: .secondary.opacity(0.6))
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    HStack(spacing: 8) {
-                        Chip(text: task.categoryTitle, color: categoryColor)
-                        if task.isCompleted {
-                            Chip(text: "Completed", color: .green)
-                        }
+            VStack(alignment: .leading, spacing: 8) {
+                // Collaborative badge when not the creator
+                if task.isCreator == false {
+                    HStack(spacing: 6) {
+                        Image(systemName: "person.2.fill")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.blue)
+                        Text("Collaborative Task")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.blue)
                     }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color.blue.opacity(0.12), in: Capsule())
                 }
 
-                Spacer(minLength: 0)
+                HStack(alignment: .top, spacing: 12) {
+                    Circle()
+                        .fill(categoryColor.opacity(0.18))
+                        .frame(width: 46, height: 46)
+                        .overlay(
+                            Image(systemName: task.icon)
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundStyle(categoryColor)
+                        )
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(task.title)
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(task.isCompleted ? .secondary : .primary)
+                            .strikethrough(task.isCompleted, color: .secondary.opacity(0.6))
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        HStack(spacing: 8) {
+                            Chip(text: task.categoryTitle, color: categoryColor)
+                            if task.isCompleted {
+                                Chip(text: "Completed", color: .green)
+                            }
+                        }
+                    }
+
+                    Spacer(minLength: 0)
+                }
+                .padding(.top, task.isCreator ? 0 : 2)
             }
             .padding(.vertical, 2)
         }
@@ -411,7 +457,6 @@ struct SingleTaskView: View {
             detailRow(icon: "arrow.clockwise", title: "Repeat", value: (task.repeatType ?? .none).shortTitle, valueColor: repeatColor)
             detailRow(icon: task.icon, title: "Category", value: task.categoryTitle, valueColor: categoryColor)
         }
-        // Description section (if non-empty)
         if !task.description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             Section("Description") {
                 Text(task.description)
@@ -426,24 +471,37 @@ struct SingleTaskView: View {
     private func actionsSection() -> some View {
         Section("Actions") {
             Button {
-                showShareSheet = true
-                shareMessage = nil
-                searchTask?.cancel()
-                searchTask = nil
-                searchTerm = ""
-                collabStore.taskUsers = []
-                collabStore.errorMessage = nil
-                collabStore.isLoading = false
+                toggleCompletion()
             } label: {
-                Label("Share Task", systemImage: "square.and.arrow.up")
+                Label(task.isCompleted ? "Mark as Incomplete" : "Mark as Complete",
+                      systemImage: task.isCompleted ? "circle" : "checkmark.circle.fill")
                     .font(.callout.weight(.semibold))
             }
+            .disabled(taskStore.isLoading)
 
-            Button(role: .destructive) {
-                showDeleteConfirm = true
-            } label: {
-                Label("Delete Task", systemImage: "trash")
-                    .font(.callout.weight(.semibold))
+            if task.isCreator {
+                Button {
+                    showShareSheet = true
+                    shareMessage = nil
+                    searchTask?.cancel()
+                    searchTask = nil
+                    searchTerm = ""
+                    collabStore.taskUsers = []
+                    collabStore.errorMessage = nil
+                    collabStore.isLoading = false
+                } label: {
+                    Label("Share Task", systemImage: "square.and.arrow.up")
+                        .font(.callout.weight(.semibold))
+                }
+                .disabled(taskStore.isLoading)
+
+                Button(role: .destructive) {
+                    showDeleteConfirm = true
+                } label: {
+                    Label("Delete Task", systemImage: "trash")
+                        .font(.callout.weight(.semibold))
+                }
+                .disabled(taskStore.isLoading)
             }
         }
     }
@@ -474,7 +532,6 @@ struct SingleTaskView: View {
         newCategoryId = task.categoryId
         newRepeatOption = task.repeatType ?? .none
 
-        // If task has a due date, enable reminder and parse it
         if let dueString = task.due,
            let parsedDate = ISO8601DateFormatter().date(from: dueString) {
             setReminder = true
@@ -498,12 +555,16 @@ struct SingleTaskView: View {
             let finalDue: Date? = (setReminder && notificationsAllowed) ? newDueDate : nil
             let finalRepeat: RepeatType? = (setReminder && notificationsAllowed) ? newRepeatOption : nil
 
+            // Trim only leading/trailing whitespace before sending
+            let trimmedTitle = newTaskTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+            let trimmedDescription = newDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+            let limitedDescription = String(trimmedDescription.prefix(maxDescriptionLength))
+
             do {
-                // ✅ Call editTask and get the updated task back
                 let updatedTask = try await taskStore.editTask(
                     taskId: task.id,
-                    title: newTaskTitle.trimmingCharacters(in: .whitespacesAndNewlines),
-                    description: newDescription.trimmingCharacters(in: .whitespacesAndNewlines),
+                    title: trimmedTitle,
+                    description: limitedDescription,
                     due: finalDue,
                     isCompleted: nil,
                     repeatType: finalRepeat,
@@ -511,13 +572,10 @@ struct SingleTaskView: View {
                     token: token
                 )
 
-                // 🔔 Update local notifications based on edited values
                 if updatedTask.isCompleted || updatedTask.due == nil {
-                    // Cancel if completed or due removed
                     NotificationManager.shared.cancelTaskNotification(id: updatedTask.id)
                 } else if let iso = updatedTask.due,
                           let dueDate = ISO8601DateFormatter().date(from: iso) {
-                    // Reschedule using updated title and due
                     NotificationManager.shared.scheduleTaskNotification(
                         id: updatedTask.id,
                         title: updatedTask.title,
@@ -525,13 +583,62 @@ struct SingleTaskView: View {
                     )
                 }
 
-                // ✅ Update local task with fresh data from API
                 task = updatedTask
                 isEditing = false
             } catch {
-                // Handle error
                 localErrorMessage = error.localizedDescription
                 showLocalErrorAlert = true
+            }
+        }
+    }
+
+    private func toggleCompletion() {
+        Task {
+            guard let token = auth.token else {
+                localErrorMessage = "You must be logged in."
+                showLocalErrorAlert = true
+                return
+            }
+
+            // Optimistic local flip to immediately update button text and UI
+            let previous = task
+            task.isCompleted.toggle()
+
+            // Optimistically adjust local notification to match the new state
+            if task.isCompleted {
+                NotificationManager.shared.cancelTaskNotification(id: task.id)
+            } else if let iso = task.due,
+                      let dueDate = ISO8601DateFormatter().date(from: iso) {
+                NotificationManager.shared.scheduleTaskNotification(
+                    id: task.id,
+                    title: task.title,
+                    dueDate: dueDate
+                )
+            }
+
+            // Call store to toggle globally and sync with backend
+            await taskStore.toggleTask(id: task.id, token: token)
+
+            // If store surfaced an error, roll back local change and show alert
+            if taskStore.showErrorAlert {
+                task = previous
+                if task.isCompleted {
+                    NotificationManager.shared.cancelTaskNotification(id: task.id)
+                } else if let iso = task.due,
+                          let dueDate = ISO8601DateFormatter().date(from: iso) {
+                    NotificationManager.shared.scheduleTaskNotification(
+                        id: task.id,
+                        title: task.title,
+                        dueDate: dueDate
+                    )
+                }
+                localErrorMessage = taskStore.errorMessage
+                showLocalErrorAlert = true
+            } else {
+                if let updated = (taskStore.todayTasks + taskStore.upcomingTasks + taskStore.overdueTasks + taskStore.noDueTasks + taskStore.tasks)
+                    .first(where: { $0.id == task.id }) {
+                    task = updated
+                }
             }
         }
     }

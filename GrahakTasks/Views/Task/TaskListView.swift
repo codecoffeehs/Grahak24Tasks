@@ -92,7 +92,7 @@ struct TaskListView: View {
                                     .foregroundColor(.blue)
                                 }
                             ) {
-                                ForEach(taskStore.overdueTasks.prefix(3), id: \.id) { task in
+                                ForEach(taskStore.overdueTasks, id: \.id) { task in
                                     taskRow(task)
                                 }
                             }
@@ -114,7 +114,7 @@ struct TaskListView: View {
                                     .foregroundColor(.blue)
                                 }
                             ) {
-                                ForEach(taskStore.todayTasks.prefix(5), id: \.id) { task in
+                                ForEach(taskStore.todayTasks, id: \.id) { task in
                                     taskRow(task)
                                 }
                             }
@@ -158,7 +158,7 @@ struct TaskListView: View {
                                     .foregroundColor(.blue)
                                 }
                             ) {
-                                ForEach(taskStore.noDueTasks.prefix(3), id: \.id) { task in
+                                ForEach(taskStore.noDueTasks, id: \.id) { task in
                                     taskRow(task)
                                 }
                             }

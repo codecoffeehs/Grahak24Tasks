@@ -24,11 +24,10 @@ struct TaskRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            // Completion indicator: subtle when incomplete, clear when complete
-            Image(systemName: isCompleted ? "checkmark.circle.fill" : "circle")
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(isCompleted ? .green : .secondary)
-                .padding(.top, 1)
+            // Status indicator: non-interactive ring for incomplete, filled icon for complete
+            statusIndicator
+                .padding(.top, 2)
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 6) {
                 // Title with subtle strike-through when completed
@@ -39,30 +38,13 @@ struct TaskRow: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
 
-                // Description with truncation and fade at the end
+                // Description: single line with truncation
                 if !description.isEmpty {
                     Text(description)
                         .font(.system(size: 14))
                         .foregroundStyle(.secondary)
-                        .lineLimit(2)
+                        .lineLimit(1)
                         .truncationMode(.tail)
-                        .overlay(
-                            GeometryReader { geometry in
-                                // Only show fade if text overflows
-                                HStack {
-                                    Spacer()
-                                    LinearGradient(
-                                        gradient: Gradient(colors: [.clear, Color(.systemBackground)]),
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                    .frame(width: 32)
-                                    .allowsHitTesting(false)
-                                }
-                                .frame(width: geometry.size.width, height: geometry.size.height)
-                                .offset(y: 4)
-                            }
-                        )
                 }
 
                 // Metadata chips
@@ -92,6 +74,31 @@ struct TaskRow: View {
         .padding(.vertical, 10)
         .contentShape(Rectangle())
         .opacity(isCompleted ? 0.55 : 1)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilitySummary)
+    }
+
+    // MARK: - Status Indicator
+
+    private var statusIndicator: some View {
+        Group {
+            if isCompleted {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(Color.green.opacity(0.92))
+                    .shadow(color: .black.opacity(0.05), radius: 0.5, x: 0, y: 0)
+            } else {
+                // Non-tappable look: a thin ring with tertiary style
+                Circle()
+                    .strokeBorder(Color.secondary.opacity(0.35), lineWidth: 1.75)
+                    .frame(width: 20, height: 20)
+                    .overlay(
+                        // Inner subtle fill to avoid reading as a button
+                        Circle()
+                            .fill(Color.secondary.opacity(0.06))
+                    )
+            }
+        }
     }
 
     // MARK: - Minimal Chips
@@ -118,6 +125,7 @@ struct TaskRow: View {
                     .stroke(chipStroke(for: dueInfo.isOverdue ? .red : .secondary), lineWidth: 0.5)
             )
             .fixedSize(horizontal: true, vertical: false)
+            .accessibilityLabel(dueInfo.isOverdue ? "Overdue, \(dueInfo.text)" : dueInfo.text)
         }
     }
 
@@ -143,6 +151,7 @@ struct TaskRow: View {
                     .stroke(chipStroke(for: repeatColor), lineWidth: 0.5)
             )
             .fixedSize(horizontal: true, vertical: false)
+            .accessibilityLabel("Repeats \(repeatType.title)")
         }
     }
 
@@ -166,6 +175,7 @@ struct TaskRow: View {
                 .stroke(chipStroke(for: categoryColor), lineWidth: 0.5)
         )
         .fixedSize(horizontal: true, vertical: false)
+        .accessibilityLabel("Category \(categoryTitle)")
     }
 
     // Shared chips (only used when sharedWithCount > 0)
@@ -189,6 +199,7 @@ struct TaskRow: View {
                 .stroke(chipStroke(for: categoryColor), lineWidth: 0.5)
         )
         .fixedSize(horizontal: true, vertical: false)
+        .accessibilityLabel("Shared")
     }
 
     // MARK: - Chip styling helpers
@@ -201,5 +212,24 @@ struct TaskRow: View {
     private func chipStroke(for color: Color) -> Color {
         // Very subtle outline to keep definition without heaviness
         color.opacity(0.18)
+    }
+
+    // MARK: - Accessibility Summary
+
+    private var accessibilitySummary: String {
+        var parts: [String] = []
+        parts.append(isCompleted ? "Completed" : "Not completed")
+        parts.append(title)
+
+        if let due, let info = DateParser.parseDueDate(from: due) {
+            parts.append(info.text)
+        }
+
+        if let repeatType, repeatType != .none {
+            parts.append("Repeats \(repeatType.title)")
+        }
+
+        parts.append("Category \(categoryTitle)")
+        return parts.joined(separator: ", ")
     }
 }

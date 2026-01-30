@@ -54,7 +54,9 @@ struct AddTaskView: View {
     private var canSave: Bool {
         let hasTitle = !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let hasCategory = categoriesAvailable && selectedCategoryId != "__placeholder__"
-        guard hasTitle, hasCategory, !taskStore.isLoading else { return false }
+        // Count all characters including internal spaces for DB limit
+        let isDescriptionValid = description.count <= descriptionLimit
+        guard hasTitle, hasCategory, isDescriptionValid, !taskStore.isLoading else { return false }
 
         return setReminder ? notificationsAllowed && isDueValid : true
     }
@@ -75,7 +77,7 @@ struct AddTaskView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         ZStack(alignment: .topLeading) {
                             if description.isEmpty {
-                                Text("Add a description...") // Subtle placeholder
+                                Text("Add a description...")
                                     .foregroundStyle(.secondary)
                                     .padding(.horizontal, 6)
                                     .padding(.vertical, 10)
@@ -91,9 +93,8 @@ struct AddTaskView: View {
                                 }
                                 .font(.body)
                         }
-                        // Progress + Counter Row
+                        // Progress + Counter Row (raw count, includes internal spaces)
                         HStack {
-                            // Progress Bar
                             GeometryReader { geometry in
                                 ZStack(alignment: .leading) {
                                     Capsule()
@@ -114,7 +115,6 @@ struct AddTaskView: View {
                             .frame(height: 8)
                             .padding(.trailing, 8)
 
-                            // Character Counter
                             Text("\(description.count)/\(descriptionLimit)")
                                 .font(.caption.monospacedDigit())
                                 .foregroundStyle(description.count == descriptionLimit ? .red : .secondary)
@@ -201,9 +201,13 @@ struct AddTaskView: View {
                             let finalDue = setReminder && notificationsAllowed ? dueDate : nil
                             let finalRepeat = setReminder && notificationsAllowed ? repeatOption : nil
 
+                            let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+                            let trimmedDescription = description.trimmingCharacters(in: .whitespacesAndNewlines)
+                            let limitedDescription = String(trimmedDescription.prefix(descriptionLimit))
+
                             await taskStore.addTask(
-                                title: title.trimmingCharacters(in: .whitespacesAndNewlines),
-                                description: description.trimmingCharacters(in: .whitespacesAndNewlines),
+                                title: trimmedTitle,
+                                description: limitedDescription,
                                 due: finalDue,
                                 repeatType: finalRepeat,
                                 categoryId: selectedCategoryId,
