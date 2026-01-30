@@ -57,34 +57,34 @@ struct UpcomingTasksView: View {
                                 colorHex: task.color,
                                 categoryIcon: task.icon
                             )
-                            .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                                Button(role: .destructive) {
-                                    // Stage for confirmation
-                                    pendingDeleteTaskID = task.id
-                                    pendingDeleteTaskTitle = task.title
-                                    showDeleteAlert = true
-                                } label: {
-                                    Image(systemName: "trash")
-                                }
-                                .accessibilityLabel("Delete task")
-                                .accessibilityHint("Opens confirmation alert to permanently delete this task")
-                                .accessibilityIdentifier("delete_task_button")
-                            }
-                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                Button {
-                                    Task {
-                                        if let token = authStore.token {
-                                            await taskStore.toggleTask(id: task.id, token: token)
-                                        }
-                                    }
-                                } label: {
-                                    Image(systemName: "checkmark")
-                                }
-                                .tint(.green)
-                                .accessibilityLabel("Complete task")
-                                .accessibilityHint("Marks this task as completed")
-                                .accessibilityIdentifier("complete_task_button")
-                            }
+//                            .swipeActions(edge: .leading, allowsFullSwipe: true) {
+//                                Button(role: .destructive) {
+//                                    // Stage for confirmation
+//                                    pendingDeleteTaskID = task.id
+//                                    pendingDeleteTaskTitle = task.title
+//                                    showDeleteAlert = true
+//                                } label: {
+//                                    Image(systemName: "trash")
+//                                }
+//                                .accessibilityLabel("Delete task")
+//                                .accessibilityHint("Opens confirmation alert to permanently delete this task")
+//                                .accessibilityIdentifier("delete_task_button")
+//                            }
+//                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+//                                Button {
+//                                    Task {
+//                                        if let token = authStore.token {
+//                                            await taskStore.toggleTask(id: task.id, token: token)
+//                                        }
+//                                    }
+//                                } label: {
+//                                    Image(systemName: "checkmark")
+//                                }
+//                                .tint(.green)
+//                                .accessibilityLabel("Complete task")
+//                                .accessibilityHint("Marks this task as completed")
+//                                .accessibilityIdentifier("complete_task_button")
+//                            }
                         }
                     }
                     .listStyle(.insetGrouped)

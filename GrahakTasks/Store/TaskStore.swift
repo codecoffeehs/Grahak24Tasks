@@ -139,9 +139,14 @@ class TaskStore: ObservableObject {
             flip(in: &upcomingTasks)
             flip(in: &overdueTasks)
             flip(in: &noDueTasks)
-            if let idx = tasks.firstIndex(where: { $0.id == id }) {
-                tasks[idx].isCompleted.toggle()
-            }
+            flip(in: &tasks)
+            // Task By Due screens
+            flip(in: &allTodayTasks)
+            flip(in: &allUpcomingTasks)
+            flip(in: &allOverdueTasks)
+            flip(in: &allNoDueTasks)
+            // Category tasks
+            flip(in: &categoryTasks)
         }
         
         // Helper to replace an updated task in place (no reordering/moving)
@@ -155,14 +160,19 @@ class TaskStore: ObservableObject {
             replace(in: &upcomingTasks)
             replace(in: &overdueTasks)
             replace(in: &noDueTasks)
-            if let idx = tasks.firstIndex(where: { $0.id == updated.id }) {
-                tasks[idx] = updated
-            }
+            replace(in: &tasks)
+            // Task By Due screens
+            replace(in: &allTodayTasks)
+            replace(in: &allUpcomingTasks)
+            replace(in: &allOverdueTasks)
+            replace(in: &allNoDueTasks)
+            // Category tasks
+            replace(in: &categoryTasks)
         }
         
         // Flip optimistically
         flipCompletionInPlace(for: id)
-        // Recompute counts based on arrays currently displayed
+        // Recompute counts based on arrays currently displayed (home only, as requested)
         todayCount = todayTasks.count
         upcomingCount = upcomingTasks.count
         overdueCount = overdueTasks.count
@@ -186,7 +196,7 @@ class TaskStore: ObservableObject {
             // 2) Update the task’s full data in place (still no moving)
             updateInPlace(with: updatedTask)
 
-            // Keep counts aligned with visible arrays
+            // Keep counts aligned with visible home arrays only
             todayCount = todayTasks.count
             upcomingCount = upcomingTasks.count
             overdueCount = overdueTasks.count
@@ -290,7 +300,15 @@ class TaskStore: ObservableObject {
         overdueTasks.removeAll { $0.id == id }
         noDueTasks.removeAll { $0.id == id }
         tasks.removeAll { $0.id == id }
+        // Task By Due screens
+        allTodayTasks.removeAll { $0.id == id }
+        allUpcomingTasks.removeAll { $0.id == id }
+        allOverdueTasks.removeAll { $0.id == id }
+        allNoDueTasks.removeAll { $0.id == id }
+        // Category tasks
+        categoryTasks.removeAll { $0.id == id }
         
+        // Recompute counts only from home arrays
         todayCount = todayTasks.count
         upcomingCount = upcomingTasks.count
         overdueCount = overdueTasks.count
