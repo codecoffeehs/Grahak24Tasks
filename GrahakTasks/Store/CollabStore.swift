@@ -14,15 +14,20 @@ class CollabStore : ObservableObject{
     
     func searchTaskUsers(token: String,search:String) async {
         isLoading = true
+        // Clear previous error and results for a fresh search pass
         errorMessage = nil
 
         do {
             let response = try await CollabApi.searchTaskUsers(token: token, search: search)
             taskUsers = response
-
+            // Clear any lingering error from previous attempts
+            errorMessage = nil
         } catch {
+            // For search UX: don't pop an alert; just record error and clear stale results
+            taskUsers = []
             errorMessage = error.localizedDescription
-            showErrorAlert = true
+            // Do NOT set showErrorAlert here (typing should not trigger alerts)
+            // showErrorAlert = true
         }
 
         isLoading = false

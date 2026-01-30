@@ -123,45 +123,93 @@ class TaskStore: ObservableObject {
         isLoading = false
     }
 
-    // MARK: - Toggle Task (Optimistic UI Update, shows all tasks)
+    // MARK: - Toggle Task (Optimistic UI Update, keep position/section to avoid jitter)
     func toggleTask(
         id: String,
         token: String
     ) async {
+        // 1) Optimistically flip isCompleted in place across all arrays, without moving items.
+        func flipCompletionInPlace(for id: String) {
+            func flip(in array: inout [TaskModel]) {
+                if let idx = array.firstIndex(where: { $0.id == id }) {
+                    array[idx].isCompleted.toggle()
+                }
+            }
+            flip(in: &todayTasks)
+            flip(in: &upcomingTasks)
+            flip(in: &overdueTasks)
+            flip(in: &noDueTasks)
+            if let idx = tasks.firstIndex(where: { $0.id == id }) {
+                tasks[idx].isCompleted.toggle()
+            }
+        }
+        
+        // Helper to replace an updated task in place (no reordering/moving)
+        func updateInPlace(with updated: TaskModel) {
+            func replace(in array: inout [TaskModel]) {
+                if let idx = array.firstIndex(where: { $0.id == updated.id }) {
+                    array[idx] = updated
+                }
+            }
+            replace(in: &todayTasks)
+            replace(in: &upcomingTasks)
+            replace(in: &overdueTasks)
+            replace(in: &noDueTasks)
+            if let idx = tasks.firstIndex(where: { $0.id == updated.id }) {
+                tasks[idx] = updated
+            }
+        }
+        
+        // Flip optimistically
+        flipCompletionInPlace(for: id)
+        // Recompute counts based on arrays currently displayed
+        todayCount = todayTasks.count
+        upcomingCount = upcomingTasks.count
+        overdueCount = overdueTasks.count
+        noDueCount = noDueTasks.count
+        
         do {
             let updatedTask = try await TaskApi.toggleTask(taskId: id, token: token)
             
+            // Notifications: cancel if completed, or reschedule if due exists and not completed
             NotificationManager.shared.cancelTaskNotification(id: id)
-
-            // Remove the old task from all arrays
-            todayTasks.removeAll { $0.id == id }
-            upcomingTasks.removeAll { $0.id == id }
-            overdueTasks.removeAll { $0.id == id }
-            noDueTasks.removeAll { $0.id == id }
-            tasks.removeAll { $0.id == id }
-
-            // Insert the updated task into the correct section, regardless of completion
-            switch getSection(for: updatedTask) {
-            case .today: todayTasks.insert(updatedTask, at: 0)
-            case .upcoming: upcomingTasks.insert(updatedTask, at: 0)
-            case .overdue: overdueTasks.insert(updatedTask, at: 0)
-            case .noDue: noDueTasks.insert(updatedTask, at: 0)
+            if !updatedTask.isCompleted,
+               let iso = updatedTask.due,
+               let dueDate = ISO8601DateFormatter().date(from: iso) {
+                NotificationManager.shared.scheduleTaskNotification(
+                    id: updatedTask.id,
+                    title: updatedTask.title,
+                    dueDate: dueDate
+                )
             }
-            tasks.insert(updatedTask, at: 0)
 
-            // Update counts
+            // 2) Update the task’s full data in place (still no moving)
+            updateInPlace(with: updatedTask)
+
+            // Keep counts aligned with visible arrays
             todayCount = todayTasks.count
             upcomingCount = upcomingTasks.count
             overdueCount = overdueTasks.count
             noDueCount = noDueTasks.count
 
+            // Note: We intentionally do not reshuffle sections here to avoid jitter.
+            // If you want to reconcile with backend sections later, call fetchRecentTasks
+            // after a delay or on pull-to-refresh.
+
         } catch {
+            // Rollback optimistic flip on error
+            flipCompletionInPlace(for: id) // toggling again reverts
+            todayCount = todayTasks.count
+            upcomingCount = upcomingTasks.count
+            overdueCount = overdueTasks.count
+            noDueCount = noDueTasks.count
+            
             errorMessage = error.localizedDescription
             showErrorAlert = true
         }
     }
 
-    // Sectioning utility for optimistic update
+    // Sectioning utility retained but no longer used by toggleTask to prevent jitter
     private enum TaskSection { case today, upcoming, overdue, noDue }
     private func getSection(for task: TaskModel) -> TaskSection {
         guard let dueString = task.due,
@@ -216,19 +264,8 @@ class TaskStore: ObservableObject {
                 token: token
             )
             
-            // 🔔 Notifications handling
-            // If due is removed OR task completed => cancel
-    //        if updatedTask.isCompleted || updatedTask.due == nil {
-    //            NotificationManager.shared.cancelTaskNotification(id: updatedTask.id)
-    //        }
-    //        // If task not completed and has due => reschedule
-    //        else if let dueDate = updatedTask.due {
-    //            NotificationManager.shared.scheduleTaskNotification(
-    //                id: updatedTask.id,
-    //                title: updatedTask.title,
-    //                dueDate: dueDate
-    //            )
-    //        }
+            // 🔔 Notifications handling (kept commented in original)
+            // See SingleTaskView for notification handling after edit
             
             // ✅ refresh home sections
             await fetchRecentTasks(token: token)
@@ -349,4 +386,3 @@ class TaskStore: ObservableObject {
             isLoading = false
     }
 }
-

@@ -153,21 +153,7 @@ struct SingleTaskView: View {
                         if collabStore.isLoading && collabStore.taskUsers.isEmpty {
                             ProgressView("Searching…")
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        } else if let err = collabStore.errorMessage {
-                            ContentUnavailableView(
-                                "Error Occured",
-                                systemImage: "exclamationmark.triangle",
-                                description: Text(err)
-                            )
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        } else if collabStore.taskUsers.isEmpty {
-                            ContentUnavailableView(
-                                "No users found",
-                                systemImage: "person.crop.circle.badge.exclam",
-                                description: Text("Try a different name or email.")
-                            )
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        } else {
+                        } else if !collabStore.taskUsers.isEmpty {
                             List {
                                 Section("Tap to share with") {
                                     ForEach(collabStore.taskUsers) { user in
@@ -191,11 +177,20 @@ struct SingleTaskView: View {
                                                 }
                                             }
                                         }
+                                        .buttonStyle(.plain)
                                         .disabled(isSharing)
                                     }
                                 }
                             }
                             .listStyle(.insetGrouped)
+                        } else {
+                            // Treat errors as empty state for search to avoid jarring UX
+                            ContentUnavailableView(
+                                "No users found",
+                                systemImage: "person.crop.circle.badge.exclam",
+                                description: Text("Try a different name or email.")
+                            )
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
                         }
                     }
                 }
@@ -210,10 +205,12 @@ struct SingleTaskView: View {
                     let term = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
                     searchTask?.cancel()
 
+                    // Reset state immediately for new term
+                    collabStore.taskUsers = []
+                    collabStore.errorMessage = nil
+                    collabStore.isLoading = false
+
                     if term.count < 3 {
-                        collabStore.taskUsers = []
-                        collabStore.errorMessage = nil
-                        collabStore.isLoading = false
                         return
                     }
 
