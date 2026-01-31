@@ -12,16 +12,25 @@ struct ContentView: View {
     @EnvironmentObject var task: TaskStore
     @EnvironmentObject var category: CategoryStore
 
+    @AppStorage("hasSeenWelcome") private var hasSeenWelcome: Bool = false
+
     var body: some View {
-        if auth.isAuthenticated {
-            HomeView()
-                .transition(.move(edge: .trailing))
-        } else {
-            NavigationStack {
-                LoginView()
-                    .transition(.move(edge: .leading))
+        Group {
+            if !hasSeenWelcome {
+                WelcomeScreen()
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+            } else if auth.isAuthenticated {
+                HomeView()
+                    .transition(.move(edge: .trailing))
+            } else {
+                NavigationStack {
+                    LoginView()
+                        .transition(.move(edge: .leading))
+                }
             }
         }
+        .animation(.easeInOut(duration: 0.35), value: hasSeenWelcome)
+        .animation(.easeInOut(duration: 0.35), value: auth.isAuthenticated)
     }
 }
 
