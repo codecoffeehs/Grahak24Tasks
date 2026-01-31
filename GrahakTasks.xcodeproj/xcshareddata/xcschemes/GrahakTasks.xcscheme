@@ -16,7 +16,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "EF5B9DA22F0CC60F001635E0"
-               BuildableName = "GrahakTasks.app"
+               BuildableName = "Grahak Tasks.app"
                BlueprintName = "GrahakTasks"
                ReferencedContainer = "container:GrahakTasks.xcodeproj">
             </BuildableReference>
@@ -45,7 +45,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "EF5B9DA22F0CC60F001635E0"
-            BuildableName = "GrahakTasks.app"
+            BuildableName = "Grahak Tasks.app"
             BlueprintName = "GrahakTasks"
             ReferencedContainer = "container:GrahakTasks.xcodeproj">
          </BuildableReference>
@@ -62,7 +62,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "EF5B9DA22F0CC60F001635E0"
-            BuildableName = "GrahakTasks.app"
+            BuildableName = "Grahak Tasks.app"
             BlueprintName = "GrahakTasks"
             ReferencedContainer = "container:GrahakTasks.xcodeproj">
          </BuildableReference>

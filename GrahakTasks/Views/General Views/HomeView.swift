@@ -31,6 +31,17 @@ struct HomeView: View {
         .task {
             await NotificationManager.shared.requestPermission()
         }
-        .tabBarMinimizeBehavior(.onScrollDown)
+        .tabBarMinimizeIfAvailable()
+    }
+}
+
+extension View{
+    @ViewBuilder
+    func tabBarMinimizeIfAvailable()-> some View{
+        if #available(iOS 26.0, *){
+            self.tabBarMinimizeBehavior(.onScrollDown)
+        }else{
+            self
+        }
     }
 }
