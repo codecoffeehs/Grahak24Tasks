@@ -9,6 +9,44 @@ struct TaskListView: View {
     @State private var pendingDeleteTaskID = ""
     @State private var pendingDeleteTaskTitle = ""
     @State private var showDeleteAlert = false
+
+    @State private var taskSearch = ""
+
+    // MARK: - Filtering helpers
+    private var isSearching: Bool {
+        !taskSearch.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func matchesSearch(_ task: TaskModel) -> Bool {
+        let q = taskSearch.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !q.isEmpty else { return true }
+        if task.title.lowercased().contains(q) { return true }
+        if task.description.lowercased().contains(q) { return true }
+        if task.categoryTitle.lowercased().contains(q) { return true }
+        return false
+    }
+
+    private var filteredOverdue: [TaskModel] {
+        taskStore.overdueTasks.filter(matchesSearch)
+    }
+
+    private var filteredToday: [TaskModel] {
+        taskStore.todayTasks.filter(matchesSearch)
+    }
+
+    private var filteredUpcoming: [TaskModel] {
+        taskStore.upcomingTasks.filter(matchesSearch)
+    }
+
+    private var filteredNoDue: [TaskModel] {
+        taskStore.noDueTasks.filter(matchesSearch)
+    }
+
+    private var filteredOverdueCount: Int { filteredOverdue.count }
+    private var filteredTodayCount: Int { filteredToday.count }
+    private var filteredUpcomingCount: Int { filteredUpcoming.count }
+    private var filteredNoDueCount: Int { filteredNoDue.count }
+
     // MARK: - Row Builder
     @ViewBuilder
     private func taskRow(_ task: TaskModel) -> some View {
@@ -39,7 +77,7 @@ struct TaskListView: View {
             .accessibilityHint("Opens confirmation alert to permanently delete this task")
             .accessibilityIdentifier("delete_task_button")
         }
-        
+
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             Button {
                 Task {
@@ -66,99 +104,156 @@ struct TaskListView: View {
                         .progressViewStyle(.circular)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                } else if taskStore.todayCount == 0 && taskStore.upcomingCount == 0 && taskStore.overdueCount == 0 && taskStore.noDueCount == 0 {
-                        ContentUnavailableView(
-                            "Nothing Coming Up Your Way!",
-                            systemImage: "sun.max",
-                            description: Text("That’s either impressive… or you forgot to add them.")
-                        )
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if !isSearching &&
+                            taskStore.todayCount == 0 &&
+                            taskStore.upcomingCount == 0 &&
+                            taskStore.overdueCount == 0 &&
+                            taskStore.noDueCount == 0 {
+                    ContentUnavailableView(
+                        "Nothing Coming Up Your Way!",
+                        systemImage: "sun.max",
+                        description: Text("That’s either impressive… or you forgot to add them.")
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if isSearching &&
+                            filteredTodayCount == 0 &&
+                            filteredUpcomingCount == 0 &&
+                            filteredOverdueCount == 0 &&
+                            filteredNoDueCount == 0 {
+                    ContentUnavailableView(
+                        "No results",
+                        systemImage: "magnifyingglass",
+                        description: Text("Try a different keyword.")
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     List {
 
                         // MARK: - Overdue
-                        if taskStore.overdueCount > 0 {
+                        let overdueCountToShow = isSearching ? filteredOverdueCount : taskStore.overdueCount
+                        if overdueCountToShow > 0 {
                             Section(
                                 header: HStack {
-                                    Text("Overdue (\(taskStore.overdueCount))")
+                                    Text("Overdue (\(overdueCountToShow))")
                                         .font(.headline)
 
                                     Spacer()
 
-                                    NavigationLink("See All") {
-                                        OverdueTasksView()
+                                    if !isSearching {
+                                        NavigationLink("See All") {
+                                            OverdueTasksView()
+                                        }
+                                        .font(.subheadline)
+                                        .foregroundColor(.blue)
+                                        .simultaneousGesture(
+                                            TapGesture().onEnded{
+                                                let generator = UIImpactFeedbackGenerator(style: .soft)
+                                                generator.impactOccurred()
+                                            }
+                                        )
                                     }
-                                    .font(.subheadline)
-                                    .foregroundColor(.blue)
                                 }
                             ) {
-                                ForEach(taskStore.overdueTasks, id: \.id) { task in
+                                ForEach(isSearching ? filteredOverdue : taskStore.overdueTasks, id: \.id) { task in
                                     taskRow(task)
                                 }
                             }
                         }
 
                         // MARK: - Today
-                        if taskStore.todayCount > 0 {
+                        let todayCountToShow = isSearching ? filteredTodayCount : taskStore.todayCount
+                        if todayCountToShow > 0 {
                             Section(
                                 header: HStack {
-                                    Text("Today (\(taskStore.todayCount))")
+                                    Text("Today (\(todayCountToShow))")
                                         .font(.headline)
 
                                     Spacer()
 
-                                    NavigationLink("See All") {
-                                        TodayTasksView()
+                                    if !isSearching {
+                                        NavigationLink("See All") {
+                                            TodayTasksView()
+                                        }
+                                        .font(.subheadline)
+                                        .foregroundColor(.blue)
+                                        .simultaneousGesture(
+                                            TapGesture().onEnded{
+                                                let generator = UIImpactFeedbackGenerator(style: .soft)
+                                                generator.impactOccurred()
+                                            }
+                                        )
                                     }
-                                    .font(.subheadline)
-                                    .foregroundColor(.blue)
                                 }
                             ) {
-                                ForEach(taskStore.todayTasks, id: \.id) { task in
+                                ForEach(isSearching ? filteredToday : taskStore.todayTasks, id: \.id) { task in
                                     taskRow(task)
                                 }
                             }
                         }
 
                         // MARK: - Upcoming
-                        if taskStore.upcomingCount > 0 {
+                        let upcomingCountToShow = isSearching ? filteredUpcomingCount : taskStore.upcomingCount
+                        if upcomingCountToShow > 0 {
                             Section(
                                 header: HStack {
-                                    Text("Upcoming (\(taskStore.upcomingCount))")
+                                    Text("Upcoming (\(upcomingCountToShow))")
                                         .font(.headline)
 
                                     Spacer()
 
-                                    NavigationLink("See All") {
-                                        UpcomingTasksView()
+                                    if !isSearching {
+                                        NavigationLink("See All") {
+                                            UpcomingTasksView()
+                                        }
+                                        .font(.subheadline)
+                                        .foregroundColor(.blue)
+                                        .simultaneousGesture(
+                                            TapGesture().onEnded{
+                                                let generator = UIImpactFeedbackGenerator(style: .soft)
+                                                generator.impactOccurred()
+                                            }
+                                        )
                                     }
-                                    .font(.subheadline)
-                                    .foregroundColor(.blue)
                                 }
                             ) {
-                                ForEach(taskStore.upcomingTasks.prefix(4), id: \.id) { task in
-                                    taskRow(task)
+                                if isSearching {
+                                    ForEach(filteredUpcoming, id: \.id) { task in
+                                        taskRow(task)
+                                    }
+                                } else {
+                                    ForEach(taskStore.upcomingTasks.prefix(4), id: \.id) { task in
+                                        taskRow(task)
+                                    }
                                 }
                             }
                         }
-                        
+
                         // MARK: - No Due
-                        if taskStore.noDueCount > 0 {
+                        let noDueCountToShow = isSearching ? filteredNoDueCount : taskStore.noDueCount
+                        if noDueCountToShow > 0 {
                             Section(
                                 header: HStack {
-                                    Text("No Due (\(taskStore.noDueCount))")
+                                    Text("No Due (\(noDueCountToShow))")
                                         .font(.headline)
 
                                     Spacer()
 
-                                    NavigationLink("See All") {
-                                        NoDueTasksView()
+                                    if !isSearching {
+                                        NavigationLink("See All") {
+                                            NoDueTasksView()
+                                        }
+                                        .font(.subheadline)
+                                        .foregroundColor(.blue)
+                                        .simultaneousGesture(
+                                            TapGesture().onEnded{
+                                                let generator = UIImpactFeedbackGenerator(style: .soft)
+                                                generator.impactOccurred()
+                                            }
+                                        )
                                     }
-                                    .font(.subheadline)
-                                    .foregroundColor(.blue)
                                 }
                             ) {
-                                ForEach(taskStore.noDueTasks, id: \.id) { task in
+                                ForEach(isSearching ? filteredNoDue : taskStore.noDueTasks, id: \.id) { task in
                                     taskRow(task)
                                 }
                             }
@@ -176,24 +271,6 @@ struct TaskListView: View {
                         Image(systemName: "plus")
                     }
                 }
-
-//                ToolbarItem(placement: .topBarLeading) {
-//                    Menu {
-//                        Button {
-//                            // later
-//                        } label: {
-//                            Label("Mark All As Done", systemImage: "checkmark.circle")
-//                        }
-//
-//                        Button(role: .destructive) {
-//                            // later
-//                        } label: {
-//                            Label("Delete All", systemImage: "trash")
-//                        }
-//                    } label: {
-//                        Image(systemName: "ellipsis")
-//                    }
-//                }
             }
             .sheet(isPresented: $openTaskAddSheet) {
                 AddTaskView()
@@ -230,5 +307,8 @@ struct TaskListView: View {
         } message: {
             Text(taskStore.errorMessage ?? "Something went wrong")
         }
+        .searchable(text: $taskSearch, prompt: "Search tasks")
+        .textInputAutocapitalization(.never)
+        .autocorrectionDisabled(true)
     }
 }

@@ -5,31 +5,51 @@ struct CategoryView: View {
     @State private var selectedCategoryForDeletion: CategoryModel?
     @State private var showDeleteAlert = false
     @State private var categorySearch = ""
+
     @EnvironmentObject var categoryStore: CategoryStore
     @EnvironmentObject var authStore: AuthStore
     @EnvironmentObject var taskStore : TaskStore
     
+    // MARK: - Helpers
+
     private var hasCategories: Bool {
         !categoryStore.categories.isEmpty
     }
 
-    private var filteredCategories: [CategoryModel] {
-        let search = categorySearch.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard hasCategories else { return [] }
-        guard !search.isEmpty else { return categoryStore.categories }
+    // Normalized search term (trimmed, lowercased, diacritics-insensitive)
+    private var normalizedSearch: String {
+        categorySearch
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+            .lowercased()
+    }
 
-        return categoryStore.categories.filter { $0.title.localizedCaseInsensitiveContains(search) }
+    private func matchesSearch(_ category: CategoryModel) -> Bool {
+        // If search is empty, everything matches
+        guard !normalizedSearch.isEmpty else { return true }
+
+        let title = category.title
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+            .lowercased()
+
+        return title.contains(normalizedSearch)
+    }
+
+    private var filteredCategories: [CategoryModel] {
+        guard hasCategories else { return [] }
+        return categoryStore.categories.filter(matchesSearch)
     }
 
     var body: some View {
         NavigationStack {
             Group {
                 if categoryStore.isLoading {
+                    // Keep loading full-screen (rare, short-lived state)
                     ProgressView()
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 } else if !hasCategories {
-                    // No categories at all
+                    // Truly empty: keep a full-screen empty state
                     ContentUnavailableView(
                         "No Categories Yet",
                         systemImage: "tray",
@@ -37,39 +57,48 @@ struct CategoryView: View {
                     )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                } else if filteredCategories.isEmpty && !categorySearch.isEmpty {
-                    // We have categories, but search returned no matches
-                    ContentUnavailableView(
-                        "No Results",
-                        systemImage: "magnifyingglass",
-                        description: Text("No results found for your search.")
-                    )
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-
                 } else {
-                    // We have categories, and either not searching or we have matches
+                    // Keep a List on screen at all times when we have categories
                     List {
-                        ForEach(filteredCategories, id: \.id) { category in
-                            let isOthers = category.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "others"
-
-                            NavigationLink {
-                                CategoryTasksView(categoryId: category.id, categoryTitle: category.title)
-                            } label: {
-                                CategoryRow(
-                                    title: category.title,
-                                    icon: category.icon,
-                                    colorHex: category.color,
-                                    totalTasks: category.tasksCount
-                                )
-                            }
-                            // Do not allow swipe actions for "Others"
-                            .modifier(ConditionalSwipeActionsModifier(
-                                isEnabled: !isOthers,
-                                onDelete: {
-                                    selectedCategoryForDeletion = category
-                                    showDeleteAlert = true
+                        if filteredCategories.isEmpty && !categorySearch.isEmpty {
+                            // Inline empty state to avoid layout reflow
+                            Section {
+                                EmptyView()
+                            } footer: {
+                                VStack(spacing: 8) {
+                                    Image(systemName: "magnifyingglass")
+                                        .font(.system(size: 28, weight: .regular))
+                                        .foregroundStyle(.secondary)
+                                    Text("No results found for your search.")
+                                        .font(.callout)
+                                        .foregroundStyle(.secondary)
                                 }
-                            ))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 24)
+                            }
+                        } else {
+                            ForEach(filteredCategories, id: \.id) { category in
+                                let isOthers = category.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "others"
+
+                                NavigationLink {
+                                    CategoryTasksView(categoryId: category.id, categoryTitle: category.title)
+                                } label: {
+                                    CategoryRow(
+                                        title: category.title,
+                                        icon: category.icon,
+                                        colorHex: category.color,
+                                        totalTasks: category.tasksCount
+                                    )
+                                }
+                                // Do not allow swipe actions for "Others"
+                                .modifier(ConditionalSwipeActionsModifier(
+                                    isEnabled: !isOthers,
+                                    onDelete: {
+                                        selectedCategoryForDeletion = category
+                                        showDeleteAlert = true
+                                    }
+                                ))
+                            }
                         }
                     }
                     .listStyle(.insetGrouped)
@@ -122,10 +151,11 @@ struct CategoryView: View {
             .sheet(isPresented: $addCategoryOpen) {
                 AddCategoryView()
             }
-            // Always show the search bar to avoid layout jitter across navigations
-            .searchable(text: $categorySearch, prompt: "Search for a category")
+            // Simple searchable: always visible, no suggestions
+            .searchable(text: $categorySearch, prompt: "Search categories")
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled(true)
+            .submitLabel(.search)
             .task {
                 if let token = authStore.token {
                     await categoryStore.fetchCategories(token: token)

@@ -16,6 +16,9 @@ struct UpcomingTasksView: View {
     @State private var pendingDeleteTaskTitle = ""
     @State private var showDeleteAlert = false
     
+    // Simple search
+    @State private var searchText: String = ""
+    
     private var countSubtitle: String {
         let count = taskStore.noDueCount
         if taskStore.isLoading {
@@ -28,6 +31,18 @@ struct UpcomingTasksView: View {
             return "\(count) items"
         }
     }
+    
+    private var filteredTasks: [TaskModel] {
+        let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !q.isEmpty else { return taskStore.allUpcomingTasks }
+        return taskStore.allUpcomingTasks.filter { task in
+            if task.title.lowercased().contains(q) { return true }
+            if task.description.lowercased().contains(q) { return true }
+            if task.categoryTitle.lowercased().contains(q) { return true }
+            return false
+        }
+    }
+    
     var body: some View {
         NavigationStack {
             Group {
@@ -35,15 +50,17 @@ struct UpcomingTasksView: View {
                     ProgressView("Loading upcoming tasks…")
                         .progressViewStyle(.circular)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if taskStore.allUpcomingTasks.isEmpty {
+                } else if filteredTasks.isEmpty {
                     ContentUnavailableView(
-                        "No task coming your way",
-                        systemImage: "checkmark.circle",
-                        description: Text("Enjoy your day or add a new task to get started.")
+                        taskStore.allUpcomingTasks.isEmpty && searchText.isEmpty ? "No task coming your way" : "No results",
+                        systemImage: taskStore.allUpcomingTasks.isEmpty && searchText.isEmpty ? "checkmark.circle" : "magnifyingglass",
+                        description: Text(taskStore.allUpcomingTasks.isEmpty && searchText.isEmpty
+                                          ? "Enjoy your day or add a new task to get started."
+                                          : "Try a different keyword.")
                     )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    List(taskStore.allUpcomingTasks) { task in
+                    List(filteredTasks) { task in
                         NavigationLink {
                             SingleTaskView(task: task)
                         } label: {
@@ -57,53 +74,27 @@ struct UpcomingTasksView: View {
                                 colorHex: task.color,
                                 categoryIcon: task.icon
                             )
-//                            .swipeActions(edge: .leading, allowsFullSwipe: true) {
-//                                Button(role: .destructive) {
-//                                    // Stage for confirmation
-//                                    pendingDeleteTaskID = task.id
-//                                    pendingDeleteTaskTitle = task.title
-//                                    showDeleteAlert = true
-//                                } label: {
-//                                    Image(systemName: "trash")
-//                                }
-//                                .accessibilityLabel("Delete task")
-//                                .accessibilityHint("Opens confirmation alert to permanently delete this task")
-//                                .accessibilityIdentifier("delete_task_button")
-//                            }
-//                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-//                                Button {
-//                                    Task {
-//                                        if let token = authStore.token {
-//                                            await taskStore.toggleTask(id: task.id, token: token)
-//                                        }
-//                                    }
-//                                } label: {
-//                                    Image(systemName: "checkmark")
-//                                }
-//                                .tint(.green)
-//                                .accessibilityLabel("Complete task")
-//                                .accessibilityHint("Marks this task as completed")
-//                                .accessibilityIdentifier("complete_task_button")
-//                            }
                         }
                     }
                     .listStyle(.insetGrouped)
+                    .scrollDismissesKeyboard(.immediately)
                 }
             }
             .navigationTitle("Upcoming Tasks")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    VStack(spacing: 2) {
-                        Text("Upcoming Tasks")
-                            .font(.headline)
-                        Text(countSubtitle)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    .accessibilityElement(children: .combine)
-                }
-            }
+//            .toolbar {
+//                ToolbarItem(placement: .principal) {
+//                    VStack(spacing: 2) {
+//                        Text("Upcoming Tasks")
+//                            .font(.headline)
+//                        Text(countSubtitle)
+//                            .font(.subheadline)
+//                            .foregroundStyle(.secondary)
+//                    }
+//                    .accessibilityElement(children: .combine)
+//                }
+//            }
+            .searchable(text: $searchText, prompt: "Search tasks")
         }
         .task {
             if let token = authStore.token {
@@ -136,6 +127,7 @@ struct UpcomingTasksView: View {
         } message: {
             Text(taskStore.errorMessage ?? "Something went wrong")
         }
-
+        .textInputAutocapitalization(.never)
+        .autocorrectionDisabled(true)
     }
 }

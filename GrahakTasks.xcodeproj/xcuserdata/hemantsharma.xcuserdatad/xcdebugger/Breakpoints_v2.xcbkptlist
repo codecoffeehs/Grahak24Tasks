@@ -8,7 +8,7 @@
          BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
          <BreakpointContent
             uuid = "3A1E0BA1-E001-46B2-95B6-D98C5086E030"
-            shouldBeEnabled = "Yes"
+            shouldBeEnabled = "No"
             ignoreCount = "0"
             continueAfterRunningActions = "No"
             filePath = "GrahakTasks/Views/Task By Due/OverdueTasksView.swift"
@@ -16,7 +16,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "35"
             endingLineNumber = "35"
-            landmarkName = "body"
+            landmarkName = "filteredTasks"
             landmarkType = "24">
          </BreakpointContent>
       </BreakpointProxy>
